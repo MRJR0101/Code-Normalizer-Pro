@@ -1,9 +1,18 @@
 # code-normalizer-pro
 
-Normalize and standardize source code across a repository.
+![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![PyPI](https://img.shields.io/pypi/v/code-normalizer-pro?style=flat-square)
 
-`code-normalizer-pro` performs deterministic, non-semantic cleanup passes on
-source files so repositories are easier to lint, refactor, and automate.
+A CLI tool that runs a deterministic, non-semantic cleanup pass over a codebase —
+fixing mixed encodings, inconsistent line endings, trailing whitespace, and missing
+final newlines. One command. No config required.
+
+```bash
+code-normalizer-pro . --dry-run -e .py
+```
+
+---
 
 ## What Problem It Solves
 
@@ -15,31 +24,37 @@ Large repositories accumulate inconsistencies over time:
 - missing final newlines
 - partially normalized files
 
-These inconsistencies create noise in diffs, complicate tooling, and make
-automation less reliable across editors, CI systems, and refactoring passes.
+These inconsistencies create noise in diffs, complicate tooling, and make automation
+less reliable across editors, CI systems, and refactoring passes.
 
-`code-normalizer-pro` provides a deterministic pass over a codebase to
-normalize these issues before linting, refactoring, or automated processing.
+`code-normalizer-pro` provides a deterministic pass over a codebase to normalize
+these issues before linting, refactoring, or automated processing.
 
-## Features
+---
 
-- recursive repository scanning
-- UTF-8 normalization for supported text encodings
-- consistent newline normalization to LF
-- trailing whitespace cleanup
-- final newline enforcement
-- optional extension filtering
-- dry-run mode for previewing changes
-- clean-copy output mode or explicit in-place editing
-- hash-based incremental caching
-- parallel processing
-- interactive file-by-file approval
-- syntax checking on normalized output
-- git pre-commit hook installation
+## Before / After
+
+`·` marks trailing spaces.
+
+```text
+# Before
+def add(a, b):····
+    return a + b····
+```
+
+```text
+# After
+def add(a, b):
+    return a + b
+```
+
+The normalized file is written with UTF-8 encoding, LF newlines, and a final newline.
+
+---
 
 ## Installation
 
-Python `>=3.10`
+Requires Python `>=3.10`
 
 ```bash
 pip install code-normalizer-pro
@@ -56,6 +71,8 @@ Optional dev install:
 ```bash
 pip install "code-normalizer-pro[dev]"
 ```
+
+---
 
 ## Quick Start
 
@@ -89,49 +106,48 @@ Install the git pre-commit hook:
 code-normalizer-pro --install-hook
 ```
 
-By default, if you do not use `--dry-run` or `--in-place`, the tool writes
-clean-copy outputs beside the originals instead of overwriting the source file.
+By default, without `--dry-run` or `--in-place`, the tool writes clean-copy outputs
+beside the originals instead of overwriting source files.
 
-## Example
-
-Before normalization:
-
-`·` marks trailing spaces.
-
-```text
-def add(a, b):····
-    return a + b····
-```
-
-After normalization:
-
-```text
-def add(a, b):
-    return a + b
-```
-
-The normalized file is also written with UTF-8 encoding, LF newlines, and a
-final newline.
+---
 
 ## Typical Workflow
 
-A common workflow is:
-
-1. run `code-normalizer-pro . --dry-run`
-2. run `code-normalizer-pro . --dry-run --check` if syntax validation matters
-3. run `code-normalizer-pro . --in-place`
-4. run a linter or formatter
-5. commit changes
+1. `code-normalizer-pro . --dry-run` — preview what changes
+2. `code-normalizer-pro . --dry-run --check` — add syntax validation
+3. `code-normalizer-pro . --in-place` — apply changes
+4. Run your linter or formatter
+5. Commit
 
 This reduces formatting noise and improves deterministic tool output.
+
+---
+
+## Features
+
+- recursive repository scanning
+- UTF-8 normalization for supported text encodings
+- consistent newline normalization to LF
+- trailing whitespace cleanup
+- final newline enforcement
+- optional extension filtering
+- dry-run mode for previewing changes
+- clean-copy output mode or explicit in-place editing
+- hash-based incremental caching
+- parallel processing
+- interactive file-by-file approval
+- syntax checking on normalized output
+- git pre-commit hook installation
+
+---
 
 ## CLI Options
 
 | Option | Description |
-|------|-------------|
+|--------|-------------|
 | `--dry-run` | show proposed changes without writing files |
 | `--in-place` | apply normalization changes to the original files |
-| `-o, --output` | write a normalized copy to a specific output file in single-file mode |
+| `-o, --output` | write a normalized copy to a specific output file |
 | `-e, --ext` | restrict processing to specific file extensions |
 | `--check` | run syntax checks on normalized output |
 | `--parallel` | process files with multiple workers |
@@ -143,60 +159,41 @@ This reduces formatting noise and improves deterministic tool output.
 | `--install-hook` | install a git pre-commit hook |
 | `-v, --verbose` | show detailed processing information |
 
+---
+
 ## Safety
 
-`code-normalizer-pro` is designed to be conservative.
+`code-normalizer-pro` is conservative by design:
 
-- transformations are deterministic
-- transformations do not change intended program behavior
+- transformations are deterministic and do not change program behavior
 - binary files are skipped automatically
-- `--dry-run` previews changes without writing files
-- `--in-place` is explicit
+- `--dry-run` previews changes without writing anything
 - in-place mode creates backups by default unless `--no-backup` is used
-- syntax checks run against normalized output without rewriting the original file in dry-run mode
+- syntax checks run against normalized output without rewriting the source file
 
-## When to Use
-
-`code-normalizer-pro` is useful when:
-
-- preparing a repository for automated refactoring
-- cleaning legacy codebases
-- reducing formatting noise in version control
-- standardizing files before CI linting
-- making source files consistent before AI-assisted tooling
+---
 
 ## Supported Encodings
 
-- `utf-8`
-- `utf-8-sig`
-- `utf-16`
-- `utf-16-le`
-- `utf-16-be`
-- `windows-1252`
-- `latin-1`
-- `iso-8859-1`
+`utf-8` `utf-8-sig` `utf-16` `utf-16-le` `utf-16-be` `windows-1252` `latin-1` `iso-8859-1`
 
 ## Supported Syntax Checks
 
-- Python
-- JavaScript
-- TypeScript
-- Go
-- Rust
-- C
-- C++
-- Java
+`Python` `JavaScript` `TypeScript` `Go` `Rust` `C` `C++` `Java`
 
-If a checker is not installed, the tool reports that as unavailable instead of
-failing the whole run.
+If a checker is not installed, the tool reports it as unavailable rather than failing the run.
 
-## Design Philosophy
+---
 
-`code-normalizer-pro` focuses on three principles:
+## When to Use
 
-1. deterministic transformations
-2. no semantic changes
-3. automation-friendly output
+- preparing a repository for automated refactoring
+- cleaning legacy codebases before a linting pass
+- reducing formatting noise in version control history
+- standardizing files before CI runs
+- making source files consistent before AI-assisted tooling
+
+---
 
 ## License
 
