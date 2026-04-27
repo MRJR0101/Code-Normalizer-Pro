@@ -2,6 +2,9 @@
 
 This module owns the CLI surface only — argument parsing, config merging, logger
 setup, and orchestration calls.  All normalization logic lives in engine/*.
+
+Config merge order (highest wins):
+  CLI flags  >  CNP_* env vars  >  pyproject.toml  >  built-in defaults
 """
 
 from __future__ import annotations
@@ -15,11 +18,13 @@ from typing import List, Optional, Set
 import typer
 from loguru import logger
 
+from code_normalizer_pro.config import ConfigLoader
 from code_normalizer_pro.engine.cache import CACHE_FILE
 from code_normalizer_pro.engine.normalizer import (
     CodeNormalizer,
     DEFAULT_EXCLUDE_DIRS,
 )
+from code_normalizer_pro.engine.telemetry import TelemetryManager
 from code_normalizer_pro.engine.walker import _is_in_git_repo, install_git_hook
 
 # Version — importlib.metadata avoids circular import when run as a script
@@ -87,45 +92,57 @@ def cli_main(
     compress_logs: bool = typer.Option(False, "--compress-logs", help="Compress rotated log files (.gz)"),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     fail_on_changes: bool = typer.Option(False, "--fail-on-changes", help="Exit 1 when --dry-run finds files that need normalization (useful for CI pipelines)"),
-    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts (for CI/scripting; also overrides --no-backup git-repo guard)"),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts"),
+    telemetry: bool = typer.Option(False, "--telemetry", help="Opt in to local usage stats (no network, counts only)"),
+    telemetry_report: bool = typer.Option(False, "--telemetry-report", help="Print local telemetry stats and exit"),
+    telemetry_reset: bool = typer.Option(False, "--telemetry-reset", help="Erase all local telemetry data and exit"),
 ) -> None:
 
     # ------------------------------------------------------------------
-    # pyproject.toml config merging
+    # Config: pyproject.toml → env vars (CLI flags applied below)
     # ------------------------------------------------------------------
-    cfg: dict = {}
-    try:
-        pyproj = Path("pyproject.toml")
-        if pyproj.exists():
-            if sys.version_info >= (3, 11):
-                import tomllib
-                with open(pyproj, "rb") as f:
-                    cfg = tomllib.load(f).get("tool", {}).get("code-normalizer-pro", {})
-            else:
-                try:
-                    import tomli
-                    with open(pyproj, "rb") as f:
-                        cfg = tomli.load(f).get("tool", {}).get("code-normalizer-pro", {})
-                except ImportError:
-                    pass
-    except Exception as e:
-        logger.warning(f"Could not parse pyproject.toml config: {e}")
+    cfg = ConfigLoader.from_pyproject().apply_env()
 
+    # Telemetry flag also readable from config/env
+    telemetry = telemetry or cfg.get("telemetry", False)
+
+    # ------------------------------------------------------------------
+    # Logger setup (needed before any early-exit paths that print)
+    # ------------------------------------------------------------------
+    logger.remove()
+    logger.add(sys.stdout, format="{message}", level="DEBUG" if verbose else "INFO")
+
+    # ------------------------------------------------------------------
+    # Early-exit telemetry commands
+    # ------------------------------------------------------------------
+    if telemetry_report:
+        tm = TelemetryManager(enabled=True)
+        print(tm.report())
+        raise typer.Exit()
+
+    if telemetry_reset:
+        TelemetryManager(enabled=True).reset()
+        print("Telemetry data erased.")
+        raise typer.Exit()
+
+    # ------------------------------------------------------------------
+    # Merge CLI flags with config (CLI wins; fall back to cfg then default)
+    # ------------------------------------------------------------------
     ext = ext or cfg.get("ext", [".py"])
-    workers = workers or cfg.get("workers", max(1, cpu_count() - 1))
+    workers = workers or cfg.get("workers") or max(1, cpu_count() - 1)
     expand_tabs = expand_tabs or cfg.get("expand_tabs", 0)
     max_lines = max_lines or cfg.get("max_lines", 0)
+    no_backup = no_backup or cfg.get("no_backup", False)
+    parallel = parallel or cfg.get("parallel", False)
+    syntax_timeout = syntax_timeout or cfg.get("syntax_timeout", 10)
 
     if log_file is None and cfg.get("log_file"):
         log_file = Path(cfg.get("log_file"))
     compress_logs = compress_logs or cfg.get("compress_logs", False)
 
     # ------------------------------------------------------------------
-    # Logger setup
+    # Log file handler
     # ------------------------------------------------------------------
-    logger.remove()
-    logger.add(sys.stdout, format="{message}", level="DEBUG" if verbose else "INFO")
-
     if log_file:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         logger.add(
@@ -207,6 +224,7 @@ def cli_main(
     # ------------------------------------------------------------------
     # Processing
     # ------------------------------------------------------------------
+    tm = TelemetryManager(enabled=telemetry)
     try:
         if path.is_dir():
             normalizer.walk_and_process(path, ext, check_syntax=check)
@@ -218,6 +236,13 @@ def cli_main(
 
         normalizer.print_summary()
         normalizer.generate_reports()
+
+        tm.record(
+            files_processed=normalizer.stats.processed,
+            bytes_removed=normalizer.stats.bytes_removed,
+            errors=normalizer.stats.errors,
+            version=__version__,
+        )
 
         if fail_on_changes and normalizer.stats.processed > 0:
             sys.exit(1)

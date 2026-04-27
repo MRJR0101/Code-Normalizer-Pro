@@ -1,9 +1,15 @@
 """Syntax-checker registry and the standalone run_syntax_check() function.
 
-SYNTAX_CHECKERS maps file extensions to checker configurations.  The registry
-is intentionally a plain dict so new languages can be added via a simple
-``SYNTAX_CHECKERS['.zig'] = {...}`` assignment — the plug-in hook (v2.0) will
-wrap this with a ``register()`` helper that validates the entry shape.
+SYNTAX_CHECKERS maps file extensions to checker configurations.  Use the
+``register()`` helper to add new languages safely — it validates the entry
+shape and normalises the extension.  Direct dict mutation still works for
+quick one-off overrides but ``register()`` is the recommended plugin API.
+
+Plugin example::
+
+    from code_normalizer_pro.engine.checkers import register
+    register(".zig", ["zig", "ast-check"], file_arg=True)
+    register(".gleam", ["gleam", "check"], stdin=False, file_arg=False)
 """
 
 from __future__ import annotations
@@ -170,3 +176,66 @@ def run_syntax_check(
     finally:
         if temp_dir is not None:
             temp_dir.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Plugin registry API
+# ---------------------------------------------------------------------------
+
+def register(
+    ext: str,
+    command: list,
+    *,
+    stdin: bool = False,
+    file_arg: bool = True,
+) -> None:
+    """Register a custom syntax checker for *ext*.
+
+    Parameters
+    ----------
+    ext:
+        File extension including the leading dot, e.g. ``".zig"``.
+    command:
+        Executable and fixed arguments, e.g. ``["zig", "ast-check"]``.
+        The file path (or stdin content) is appended automatically at
+        runtime based on *file_arg* / *stdin*.
+    stdin:
+        Pass file content via stdin rather than as a positional argument.
+    file_arg:
+        Append the file path as the last argument to *command*.
+        Set to ``False`` when the checker only accepts stdin.
+
+    Raises
+    ------
+    ValueError
+        If *ext* does not start with ``'.'`` or *command* is empty.
+
+    Example::
+
+        from code_normalizer_pro.engine.checkers import register
+        register(".zig", ["zig", "ast-check"], file_arg=True)
+        register(".gleam", ["gleam", "check"], stdin=True, file_arg=False)
+    """
+    if not ext.startswith("."):
+        raise ValueError(f"Extension must start with '.', got {ext!r}")
+    if not command:
+        raise ValueError("command must be a non-empty list")
+    SYNTAX_CHECKERS[ext.lower()] = {
+        "command": list(command),
+        "stdin": bool(stdin),
+        "file_arg": bool(file_arg),
+    }
+
+
+def unregister(ext: str) -> bool:
+    """Remove a checker from the registry.
+
+    Returns ``True`` if the extension existed and was removed, ``False`` if
+    it was not present.
+
+    Example::
+
+        from code_normalizer_pro.engine.checkers import unregister
+        unregister(".ts")   # disable TypeScript checking for this project
+    """
+    return SYNTAX_CHECKERS.pop(ext.lower(), None) is not None

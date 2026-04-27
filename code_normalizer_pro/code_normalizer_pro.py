@@ -57,6 +57,12 @@ from code_normalizer_pro.engine.cache import (
 from code_normalizer_pro.engine.checkers import (
     SYNTAX_CHECKERS,
     run_syntax_check,
+    register as register_checker,
+    unregister as unregister_checker,
+)
+from code_normalizer_pro.engine.telemetry import (
+    TelemetryManager,
+    TELEMETRY_FILE,
 )
 from code_normalizer_pro.engine.walker import (
     _is_in_git_repo,
@@ -94,6 +100,11 @@ __all__ = [
     "install_git_hook",
     "_is_in_git_repo",
     "run_syntax_check",
+    "register_checker",
+    "unregister_checker",
+    # Telemetry
+    "TelemetryManager",
+    "TELEMETRY_FILE",
     "print_summary",
     "generate_reports",
     "_init_worker",

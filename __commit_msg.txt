@@ -1,0 +1,23 @@
+feat: v2.0 — ConfigLoader, checker registry, opt-in telemetry
+
+1. Wire ConfigLoader into cli.py
+   - Replace inline pyproject.toml parsing with ConfigLoader.from_pyproject().apply_env()
+   - Config merge order: CLI flags > CNP_* env vars > pyproject.toml > defaults
+   - Supported env vars: CNP_EXT, CNP_WORKERS, CNP_PARALLEL, CNP_TELEMETRY,
+     CNP_EXPAND_TABS, CNP_MAX_LINES, CNP_LOG_FILE, CNP_COMPRESS_LOGS,
+     CNP_NO_BACKUP, CNP_SYNTAX_TIMEOUT
+
+2. SyntaxChecker plugin registry (engine/checkers.py)
+   - register(ext, command, *, stdin, file_arg) — validated entry, normalised ext
+   - unregister(ext) -> bool — remove a checker at runtime
+   - Example: register(".zig", ["zig", "ast-check"], file_arg=True)
+
+3. Opt-in local telemetry (engine/telemetry.py)
+   - TelemetryManager(enabled=bool) — counts only, no network, no file content
+   - Records: total_runs, total_files_processed, total_bytes_removed,
+     total_errors, last_run, version
+   - Stored in ~/.config/code-normalizer-pro/telemetry.json
+   - New CLI flags: --telemetry, --telemetry-report, --telemetry-reset
+   - Also readable from pyproject.toml and CNP_TELEMETRY env var
+
+All 63 tests pass.
