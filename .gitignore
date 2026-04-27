@@ -44,3 +44,44 @@ uv.lock
 *.swp
 .DS_Store
 Thumbs.db
+
+# ── Private: planning, strategy, and internal docs ───────────────────────────
+CNP_FutureProof_Strategy.md
+EXECUTION_PLAN.md
+MISSINGMORE.txt
+PIZZA_SLICE.txt
+PROJECT_CHECKLIST.md
+PROJECT_STATUS.md
+QUICK_REFERENCE.md
+REFACTOR_LAW.txt
+Round-2-Edge-Test.txt
+project-tree-report.txt
+
+# ── Private: roadmaps ─────────────────────────────────────────────────────────
+roadmaps/
+
+# ── Private: internal docs ───────────────────────────────────────────────────
+docs/launch/
+docs/sales/
+docs/community/
+docs/release/
+docs/pyproject.toml.archive
+docs/VERIFY_legacy.md
+docs/CODE_NORMALIZER_HISTORY.md
+docs/TEST_REPORT.md
+
+# ── Private: internal scripts and their tests ────────────────────────────────
+scripts/
+tests/test_feedback_prioritizer.py
+tests/test_launch_metrics.py
+tests/test_release_prep.py
+tests/test_sales_pipeline_metrics.py
+
+# ── Private: dev/temp artifacts ──────────────────────────────────────────────
+files/
+site/
+code_normalizer_pro-3.2.0/
+
+# ── Private: internal CI workflows ───────────────────────────────────────────
+.github/workflows/monthly_metrics.yml
+.github/workflows/quarterly_review.yml

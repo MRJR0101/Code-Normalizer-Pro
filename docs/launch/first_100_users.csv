@@ -1,4 +1,0 @@
-date,channel,username_or_org,repo_size,status,feedback,follow_up_date,owner
-2026-02-12,seed-list,example-user-001,small,contacted,"Interested in pre-commit workflow",2026-02-19,MR
-2026-02-12,seed-list,example-user-002,medium,contacted,"Wants TypeScript-first examples",2026-02-19,MR
-
