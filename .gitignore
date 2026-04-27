@@ -85,3 +85,4 @@ code_normalizer_pro-3.2.0/
 # ── Private: internal CI workflows ───────────────────────────────────────────
 .github/workflows/monthly_metrics.yml
 .github/workflows/quarterly_review.yml
+FUTURE_TEXT_FEATURES.md 
