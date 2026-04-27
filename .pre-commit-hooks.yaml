@@ -1,7 +1,7 @@
 - id: code-normalizer-pro
   name: Code Normalizer Pro
-  description: Production-grade code normalization tool
-  entry: code-normalizer-pro --check
+  description: Fail if any staged files need encoding, newline, or whitespace normalization.
+  entry: code-normalizer-pro --dry-run --fail-on-changes
   language: python
   types: [text]
   require_serial: true

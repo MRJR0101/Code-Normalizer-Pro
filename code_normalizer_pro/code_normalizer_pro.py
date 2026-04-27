@@ -408,6 +408,15 @@ class CodeNormalizer:
         if b"\x00" in data and not self._looks_like_utf16_text(data):
             raise ValueError(f"File appears to be binary")
 
+        # Explicit UTF-8 BOM detection.  Python's plain "utf-8" codec treats
+        # the three BOM bytes (EF BB BF) as the valid U+FEFF codepoint rather
+        # than stripping them, so "utf-8" always wins the codec loop and the
+        # BOM is silently preserved.  We check the raw prefix first so the
+        # encoding is correctly identified as "utf-8-sig" and the BOM is
+        # removed on the next in-place write (needs_encoding_fix = True).
+        if data.startswith(b"\xef\xbb\xbf"):
+            return "utf-8-sig", data[3:].decode("utf-8")
+
         last_error = None
         for enc in COMMON_ENCODINGS:
             try:
@@ -446,17 +455,25 @@ class CodeNormalizer:
     def _get_editorconfig(self, dir_path: Path) -> Optional[configparser.ConfigParser]:
         if dir_path in self._editorconfig_cache:
             return self._editorconfig_cache[dir_path]
-            
+
         ec_path = dir_path / ".editorconfig"
         if ec_path.exists():
             try:
+                raw = ec_path.read_text(encoding="utf-8")
+                # editorconfig allows global key=value pairs before any section
+                # header (e.g. "root = true").  configparser raises
+                # MissingSectionHeaderError for such content, which silently
+                # discards the whole file.  Prepend a sentinel section so those
+                # top-level keys are stored in [__preamble__] instead.
+                if raw.lstrip() and not raw.lstrip().startswith("["):
+                    raw = "[__preamble__]\n" + raw
                 parser = configparser.ConfigParser(interpolation=None)
-                parser.read(ec_path, encoding="utf-8")
+                parser.read_string(raw)
                 self._editorconfig_cache[dir_path] = parser
                 return parser
             except Exception:
                 pass
-        
+
         self._editorconfig_cache[dir_path] = None
         return None
 
@@ -479,7 +496,13 @@ class CodeNormalizer:
                                 found = True
                 if found:
                     return indent_size
-                if parser.defaults().get("root", "").lower() == "true":
+                # "root = true" may be in the preamble sentinel section or in
+                # the configparser DEFAULTS dict, depending on file structure.
+                preamble_root = (
+                    parser.has_section("__preamble__")
+                    and parser["__preamble__"].get("root", "").lower() == "true"
+                )
+                if preamble_root or parser.defaults().get("root", "").lower() == "true":
                     break
             if current == current.parent:
                 break

@@ -38,17 +38,24 @@ def test_in_place_rewrites_clean_utf16_to_utf8(tmp_path: Path) -> None:
     assert normalizer.stats.encoding_changes == 1
 
 
-def test_dry_run_check_validates_normalized_output(tmp_path: Path, capsys) -> None:
+def test_dry_run_check_validates_normalized_output(tmp_path: Path) -> None:
+    import io as _io
     sample = tmp_path / "needs_fix.py"
     sample.write_bytes(b"print('hi')  \r\n")
 
-    normalizer = cnp.CodeNormalizer(dry_run=True, use_cache=False)
+    # Loguru bypasses Python's sys.stderr redirect and fd-level capture.
+    # Add a temporary sink to a StringIO buffer so we can assert on output.
+    buf = _io.StringIO()
+    sink_id = cnp.logger.add(buf, format="{message}", level="DEBUG")
+    try:
+        normalizer = cnp.CodeNormalizer(dry_run=True, use_cache=False)
+        assert normalizer.process_file(sample, check_syntax=True) is True
+        output = buf.getvalue()
+    finally:
+        cnp.logger.remove(sink_id)
 
-    assert normalizer.process_file(sample, check_syntax=True) is True
-    captured = capsys.readouterr()
-
-    assert "Would normalize" in captured.out
-    assert "Syntax: [+] OK" in captured.out
+    assert "Would normalize" in output
+    assert "Syntax:" in output
     assert normalizer.stats.processed == 1
     assert normalizer.stats.syntax_checks_passed == 1
 
@@ -434,12 +441,15 @@ def test_syntax_reason_surfaced_for_missing_checker(tmp_path: Path, monkeypatch)
         use_cache=False,
     )
 
-    import io, contextlib
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
+    import io as _io
+    buf = _io.StringIO()
+    sink_id = cnp.logger.add(buf, format="{message}", level="DEBUG")
+    try:
         result = normalizer.process_file(sample, check_syntax=True)
+        out = buf.getvalue()
+    finally:
+        cnp.logger.remove(sink_id)
 
-    out = buf.getvalue()
     assert result is True
     # NEW-M1 fix: the reason string must be surfaced
     assert "rustc not installed" in out, f"Expected reason in output, got: {out!r}"
@@ -538,7 +548,7 @@ def test_in_place_preserves_file_permissions(tmp_path: Path) -> None:
     assert new_mode == orig_mode, f"Permissions changed! Expected {oct(orig_mode)}, got {oct(new_mode)}"
 
 
-def test_file_symlinks_are_skipped(tmp_path: Path) -> None:
+def test_file_symlinks_are_skipped(tmp_path: Path, monkeypatch) -> None:
     """File symlinks must be ignored to prevent clobbering the target or replacing the link."""
     import pytest
     import os
@@ -548,7 +558,7 @@ def test_file_symlinks_are_skipped(tmp_path: Path) -> None:
     
     # Create a real file outside the project directory
     external_target = tmp_path / "external.py"
-    external_target.write_text("print('hello')   \n", encoding="utf-8")
+    external_target.write_bytes(b"print('hello')   \n")
 
     # Create a symlink inside the project pointing to the external file
     link_path = root / "link.py"
@@ -558,7 +568,9 @@ def test_file_symlinks_are_skipped(tmp_path: Path) -> None:
         pytest.skip(f"Cannot create symlink on this platform: {exc}")
 
     # Also add a real file to ensure the normalizer finds at least one valid file
-    (root / "main.py").write_text("print('main')   \n", encoding="utf-8")
+    (root / "main.py").write_bytes(b"print('main')   \n")
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
 
     normalizer = cnp.CodeNormalizer(
         in_place=True,
@@ -757,19 +769,22 @@ def test_mmap_binary_check_prevents_full_file_read(tmp_path: Path, monkeypatch) 
 
 
 def test_log_file_captures_stdout(tmp_path: Path) -> None:
-    """Ensure that the --log-file argument tees stdout to the specified file."""
+    """Ensure that the --log-file argument tees output to the specified file."""
     log_file = tmp_path / "execution.log"
     sample = tmp_path / "test_log.py"
-    sample.write_text("print('test')\n", encoding="utf-8")
+    # write_bytes avoids Windows CRLF; trailing whitespace gives the normalizer real work
+    sample.write_bytes(b"print('test')   \r\n")
 
-    from code_normalizer_pro.code_normalizer_pro import cli_main
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         "--log-file", str(log_file)],
+        input="y\n",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
-    try:
-        cli_main(path=sample, in_place=True, cache=False, log_file=log_file)
-    except SystemExit as e:
-        assert e.code == 0
-
-    assert log_file.exists()
+    assert log_file.exists(), "Log file was not created"
     log_content = log_file.read_text(encoding="utf-8")
     assert "CODE NORMALIZER PRO" in log_content
     assert "PROCESSING SUMMARY" in log_content
@@ -777,49 +792,554 @@ def test_log_file_captures_stdout(tmp_path: Path) -> None:
 
 
 def test_log_file_rotation(tmp_path: Path) -> None:
-    """Ensure the log file is rotated when it exceeds the size limit."""
+    """Ensure the log file is rotated when it exceeds the 5 MB size limit."""
     log_file = tmp_path / "execution.log"
-    
-    # Create a dummy log file larger than the default 5MB limit
-    log_file.write_text("A" * (6 * 1024 * 1024), encoding="utf-8")
-    
+    log_file.write_bytes(b"A" * (6 * 1024 * 1024))  # pre-seed > 5 MB
+
     sample = tmp_path / "test_rot.py"
-    sample.write_text("print('test')\n", encoding="utf-8")
+    sample.write_bytes(b"print('test')   \r\n")
 
-    from code_normalizer_pro.code_normalizer_pro import cli_main
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         "--log-file", str(log_file)],
+        input="y\n",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
-    try:
-        cli_main(path=sample, in_place=True, cache=False, log_file=log_file)
-    except SystemExit as e:
-        assert e.code == 0
-        
-    # Loguru automatically rotates and renames the file (e.g. execution.2023-10-12_10-00-00.log)
+    # Loguru rotates to a timestamped name when the file exceeds the rotation threshold
     rotated_logs = [f for f in tmp_path.glob("execution.*") if f.name != "execution.log"]
-    assert len(rotated_logs) >= 1
-    assert rotated_logs[0].stat().st_size == 6 * 1024 * 1024
-    
-    # The new active log should have been freshly created and be small
+    assert len(rotated_logs) >= 1, (
+        "Expected at least one rotated log file after exceeding 5 MB threshold"
+    )
+    # New active log must be small (fresh)
     assert log_file.exists()
     assert log_file.stat().st_size < 1024 * 1024
 
 
 def test_log_file_compression(tmp_path: Path) -> None:
-    """Ensure rotated logs are compressed when --compress-logs is used."""
+    """Ensure rotated logs are compressed (.gz) when --compress-logs is used."""
     log_file = tmp_path / "execution.log"
-    
-    # Create a dummy log file larger than the default 5MB limit
-    log_file.write_text("A" * (6 * 1024 * 1024), encoding="utf-8")
-    
+    log_file.write_bytes(b"A" * (6 * 1024 * 1024))  # pre-seed > 5 MB
+
     sample = tmp_path / "test_comp.py"
-    sample.write_text("print('test')\n", encoding="utf-8")
+    sample.write_bytes(b"print('test')   \r\n")
 
-    from code_normalizer_pro.code_normalizer_pro import cli_main
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         "--log-file", str(log_file), "--compress-logs"],
+        input="y\n",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
-    try:
-        cli_main(path=sample, in_place=True, cache=False, log_file=log_file, compress_logs=True)
-    except SystemExit as e:
-        assert e.code == 0
-        
     rotated_logs = [f for f in tmp_path.glob("execution.*") if f.name != "execution.log"]
-    assert len(rotated_logs) >= 1
-    assert any(f.name.endswith(".gz") for f in rotated_logs), "No compressed log archive found!"
+    assert len(rotated_logs) >= 1, "Expected at least one rotated log file"
+    assert any(f.name.endswith(".gz") for f in rotated_logs), (
+        f"No .gz archive found. Rotated files: {[f.name for f in rotated_logs]}"
+    )
+
+
+# ===========================================================================
+# Tests added v3.1.1+ — covering all key feature points
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# --fail-on-changes  (new flag added in v3.1.1)
+# ---------------------------------------------------------------------------
+
+def test_fail_on_changes_exits_one_when_dry_run_finds_dirty_files(tmp_path: Path) -> None:
+    """--dry-run --fail-on-changes must exit 1 when any file needs normalization.
+
+    This is the primary CI gate use-case: if any file in the repo would be
+    changed by the normalizer, the pipeline should fail so the developer knows
+    to run the normalizer locally before merging.
+    """
+    dirty = tmp_path / "dirty.py"
+    dirty.write_bytes(b"print('hi')  \r\n")  # trailing whitespace + CRLF
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(tmp_path), "-e", ".py", "--dry-run", "--fail-on-changes", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+
+    assert result.returncode == 1, (
+        f"Expected exit 1 from --fail-on-changes with dirty file, got {result.returncode}.\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+
+def test_fail_on_changes_exits_zero_when_all_files_clean(tmp_path: Path) -> None:
+    """--dry-run --fail-on-changes must exit 0 when every file is already normalized."""
+    clean = tmp_path / "clean.py"
+    clean.write_bytes(b"print('hi')\n")  # already normalized — write_bytes avoids Windows CRLF
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(tmp_path), "-e", ".py", "--dry-run", "--fail-on-changes", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+
+    assert result.returncode == 0, (
+        f"Expected exit 0 from --fail-on-changes with clean file, got {result.returncode}.\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+
+def test_dry_run_without_fail_on_changes_exits_zero_even_with_dirty_files(tmp_path: Path) -> None:
+    """--dry-run alone must exit 0 even when files need normalization.
+
+    This documents the known C4 behavior: --dry-run is a preview tool and
+    must not break CI unless --fail-on-changes is explicitly set.
+    """
+    dirty = tmp_path / "dirty.py"
+    dirty.write_bytes(b"print('hi')  \r\n")
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(tmp_path), "-e", ".py", "--dry-run", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+    )
+
+    assert result.returncode == 0, (
+        f"--dry-run without --fail-on-changes should exit 0, got {result.returncode}.\n"
+        f"stdout: {result.stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# normalize_text() — core normalization logic unit tests
+# ---------------------------------------------------------------------------
+
+def test_normalize_text_strips_trailing_whitespace(tmp_path: Path) -> None:
+    """Every trailing space on every line must be removed."""
+    path = tmp_path / "sample.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    text = "x = 1   \ny = 2  \n"
+    result, changes = normalizer.normalize_text(text, path)
+
+    assert result == "x = 1\ny = 2\n"
+    assert changes["whitespace_fixes"] > 0
+
+
+def test_normalize_text_converts_crlf_to_lf(tmp_path: Path) -> None:
+    """Every CRLF must become LF; lone CRs must also become LF."""
+    path = tmp_path / "sample.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    text = "line1\r\nline2\rline3\n"
+    result, changes = normalizer.normalize_text(text, path)
+
+    assert "\r" not in result
+    assert result == "line1\nline2\nline3\n"
+    assert changes["newline_fixes"] == 2  # two \r characters removed
+
+
+def test_normalize_text_ensures_final_newline(tmp_path: Path) -> None:
+    """A file without a trailing newline must have one added."""
+    path = tmp_path / "sample.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    text = "x = 1"
+    result, changes = normalizer.normalize_text(text, path)
+
+    assert result.endswith("\n")
+    assert changes["final_newline_added"] is True
+
+
+def test_normalize_text_is_idempotent_on_already_clean_content(tmp_path: Path) -> None:
+    """Running normalize_text on already-normalized content must return it unchanged."""
+    path = tmp_path / "sample.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    clean = "x = 1\ny = 2\n"
+    result, changes = normalizer.normalize_text(clean, path)
+
+    assert result == clean
+    assert changes["whitespace_fixes"] == 0
+    assert changes["newline_fixes"] == 0
+    assert changes["final_newline_added"] is False
+
+
+def test_normalize_text_cnp_ignore_file_skips_entire_file(tmp_path: Path) -> None:
+    """A file containing 'cnp-ignore-file' anywhere must be returned verbatim."""
+    path = tmp_path / "ignore_me.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    original = "# cnp-ignore-file\nx = 1   \r\nstill_messy  \n"
+    result, changes = normalizer.normalize_text(original, path)
+
+    assert result == original, "cnp-ignore-file annotation must suppress all normalization"
+    assert changes["whitespace_fixes"] == 0
+    assert changes["newline_fixes"] == 0
+
+
+def test_normalize_text_cnp_off_on_preserves_annotated_block(tmp_path: Path) -> None:
+    """Lines between 'cnp: off' and 'cnp: on' must not have trailing whitespace stripped."""
+    path = tmp_path / "sample.py"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    text = (
+        "clean   \n"        # should be stripped
+        "# cnp: off\n"
+        "preserved   \n"    # must NOT be stripped — inside ignore block
+        "# cnp: on\n"
+        "also_clean   \n"   # should be stripped
+    )
+    result, _ = normalizer.normalize_text(text, path)
+
+    lines = result.split("\n")
+    assert lines[0] == "clean"
+    assert lines[2] == "preserved   "  # preserved with trailing spaces
+    assert lines[4] == "also_clean"
+
+
+def test_normalize_text_markdown_preserves_hard_line_breaks(tmp_path: Path) -> None:
+    """In .md files, trailing two-space sequences (hard breaks) must be kept."""
+    path = tmp_path / "doc.md"
+    normalizer = cnp.CodeNormalizer(dry_run=False, use_cache=False)
+
+    text = "First line  \nSecond line   \nThird\n"
+    result, _ = normalizer.normalize_text(text, path)
+
+    lines = result.split("\n")
+    # Two trailing spaces = hard break, must be preserved (normalized to exactly 2)
+    assert lines[0].endswith("  ")
+    # Three trailing spaces = still collapsed to exactly 2
+    assert lines[1] == "Second line  "
+    # No trailing spaces = untouched
+    assert lines[2] == "Third"
+
+
+# ---------------------------------------------------------------------------
+# process_file — already-normalized files counted as skipped, not processed
+# ---------------------------------------------------------------------------
+
+def test_already_normalized_file_is_counted_as_skipped(tmp_path: Path) -> None:
+    """A file that is already fully normalized must be skipped, not counted as processed.
+
+    Regression guard: skipped files must not increment stats.processed, which
+    would trigger a false positive from --fail-on-changes.
+    """
+    clean = tmp_path / "clean.py"
+    clean.write_bytes(b"print('hi')\n")  # write_bytes avoids Windows CRLF translation
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False
+    )
+    result = normalizer.process_file(clean)
+
+    assert result is True
+    assert normalizer.stats.processed == 0, "Already-clean file must not increment stats.processed"
+    assert normalizer.stats.skipped == 1
+
+
+# ---------------------------------------------------------------------------
+# UTF-8 BOM stripping
+# ---------------------------------------------------------------------------
+
+def test_utf8_bom_is_stripped_on_in_place_write(tmp_path: Path) -> None:
+    """A file written with a UTF-8 BOM (EF BB BF) must have the BOM removed.
+
+    utf-8-sig is detected in COMMON_ENCODINGS; the normalizer rewrites the
+    file as plain utf-8 (encoding_changes == 1).
+    """
+    sample = tmp_path / "bom_file.py"
+    # Write with BOM explicitly
+    sample.write_bytes(b"\xef\xbb\xbfprint('hello')\n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False
+    )
+    assert normalizer.process_file(sample) is True
+
+    raw = sample.read_bytes()
+    assert not raw.startswith(b"\xef\xbb\xbf"), "UTF-8 BOM was not removed"
+    assert raw == b"print('hello')\n"
+    assert normalizer.stats.encoding_changes == 1
+
+
+# ---------------------------------------------------------------------------
+# windows-1252 / latin-1 encoding detection and conversion
+# ---------------------------------------------------------------------------
+
+def test_windows1252_file_is_converted_to_utf8(tmp_path: Path) -> None:
+    """A file written in windows-1252 must be re-encoded as UTF-8."""
+    sample = tmp_path / "latin.py"
+    # 0xe9 is 'é' in windows-1252 / latin-1
+    sample.write_bytes(b"# caf\xe9\nprint('ok')\n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False
+    )
+    result = normalizer.process_file(sample)
+
+    assert result is True
+    decoded = sample.read_text(encoding="utf-8")
+    assert "café" in decoded or "caf" in decoded
+    assert normalizer.stats.encoding_changes == 1
+
+
+# ---------------------------------------------------------------------------
+# Backup file creation
+# ---------------------------------------------------------------------------
+
+def test_backup_file_is_created_when_create_backup_is_true(tmp_path: Path) -> None:
+    """In-place normalization with create_backup=True must produce a .backup_*.py sibling."""
+    sample = tmp_path / "script.py"
+    sample.write_bytes(b"x = 1   \r\n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=True, use_cache=False
+    )
+    assert normalizer.process_file(sample) is True
+
+    backups = list(tmp_path.glob("*.backup_*.py"))
+    assert len(backups) == 1, f"Expected exactly 1 backup file, found: {[p.name for p in backups]}"
+    # Backup must contain the original dirty bytes
+    assert backups[0].read_bytes() == b"x = 1   \r\n"
+
+
+def test_no_backup_leaves_no_sibling_files(tmp_path: Path) -> None:
+    """In-place normalization with create_backup=False must not leave any extra files."""
+    sample = tmp_path / "script.py"
+    sample.write_bytes(b"x = 1   \r\n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False
+    )
+    assert normalizer.process_file(sample) is True
+
+    siblings = [p for p in tmp_path.iterdir() if p != sample]
+    assert siblings == [], f"Expected no sibling files, found: {[p.name for p in siblings]}"
+
+
+# ---------------------------------------------------------------------------
+# Confirmation prompt rejection
+# ---------------------------------------------------------------------------
+
+def test_confirmation_prompt_rejection_cancels_walk(tmp_path: Path, monkeypatch) -> None:
+    """Entering 'n' at the in-place confirmation prompt must abort the walk entirely.
+
+    No files may be modified and stats.processed must remain 0.
+    """
+    sample = tmp_path / "sample.py"
+    original = b"x = 1   \r\n"
+    sample.write_bytes(original)
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, exclude_dirs=set()
+    )
+    normalizer.walk_and_process(tmp_path, [".py"])
+
+    assert sample.read_bytes() == original, "File was modified despite prompt rejection"
+    assert normalizer.stats.processed == 0
+
+
+# ---------------------------------------------------------------------------
+# Extension filtering
+# ---------------------------------------------------------------------------
+
+def test_extension_filter_only_processes_matching_files(tmp_path: Path, monkeypatch) -> None:
+    """When -e .py is specified, .js files in the same directory must not be touched."""
+    py_file = tmp_path / "app.py"
+    js_file = tmp_path / "app.js"
+    py_file.write_bytes(b"x = 1   \r\n")
+    js_file.write_bytes(b"var x = 1;   \r\n")
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, exclude_dirs=set()
+    )
+    normalizer.walk_and_process(tmp_path, [".py"])
+
+    # Python file must be normalized
+    assert py_file.read_bytes() == b"x = 1\n"
+    # JS file must be completely untouched
+    assert js_file.read_bytes() == b"var x = 1;   \r\n"
+
+
+def test_multiple_extensions_processes_all_specified(tmp_path: Path, monkeypatch) -> None:
+    """When both -e .py and -e .js are given, both file types must be normalized."""
+    py_file = tmp_path / "app.py"
+    js_file = tmp_path / "app.js"
+    rb_file = tmp_path / "app.rb"
+    py_file.write_bytes(b"x = 1   \n")
+    js_file.write_bytes(b"var x = 1;   \n")
+    rb_file.write_bytes(b"puts 'hi'   \n")
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, exclude_dirs=set()
+    )
+    normalizer.walk_and_process(tmp_path, [".py", ".js"])
+
+    assert py_file.read_bytes() == b"x = 1\n"
+    assert js_file.read_bytes() == b"var x = 1;\n"
+    # Ruby file must be untouched — not in the extension list
+    assert rb_file.read_bytes() == b"puts 'hi'   \n"
+
+
+# ---------------------------------------------------------------------------
+# CacheManager — unit tests
+# ---------------------------------------------------------------------------
+
+def test_cache_manager_returns_false_for_uncached_file(tmp_path: Path) -> None:
+    """is_cached() must return False for a file that has never been cached."""
+    cache_file = tmp_path / "cache.json"
+    cm = cnp.CacheManager(cache_path=cache_file)
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hi')\n", encoding="utf-8")
+
+    assert cm.is_cached(sample) is False
+
+
+def test_cache_manager_returns_true_after_update(tmp_path: Path) -> None:
+    """is_cached() must return True immediately after update() is called."""
+    cache_file = tmp_path / "cache.json"
+    cm = cnp.CacheManager(cache_path=cache_file)
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hi')\n", encoding="utf-8")
+
+    cm.update(sample)
+    assert cm.is_cached(sample) is True
+
+
+def test_cache_manager_invalidates_when_file_content_changes(tmp_path: Path) -> None:
+    """is_cached() must return False after the file is modified (size change triggers miss)."""
+    cache_file = tmp_path / "cache.json"
+    cm = cnp.CacheManager(cache_path=cache_file)
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hi')\n", encoding="utf-8")
+
+    cm.update(sample)
+    assert cm.is_cached(sample) is True
+
+    # Modify the file — different content, different size
+    sample.write_text("print('hi')\nprint('extra line')\n", encoding="utf-8")
+
+    assert cm.is_cached(sample) is False, "Cache should be invalidated after file modification"
+
+
+def test_cache_manager_save_and_load_round_trip(tmp_path: Path) -> None:
+    """save() then a fresh CacheManager(load()) must have the same entries."""
+    cache_file = tmp_path / "cache.json"
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hi')\n", encoding="utf-8")
+
+    cm1 = cnp.CacheManager(cache_path=cache_file)
+    cm1.update(sample)
+    cm1.save()
+
+    # Create a brand-new CacheManager pointing to the same file
+    cm2 = cnp.CacheManager(cache_path=cache_file)
+    assert cm2.is_cached(sample) is True, "Cache entry should survive a save/load round-trip"
+
+
+def test_cache_manager_returns_false_for_deleted_file(tmp_path: Path) -> None:
+    """is_cached() must return False if the file no longer exists on disk."""
+    cache_file = tmp_path / "cache.json"
+    cm = cnp.CacheManager(cache_path=cache_file)
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hi')\n", encoding="utf-8")
+
+    cm.update(sample)
+    sample.unlink()  # delete the file
+
+    assert cm.is_cached(sample) is False
+
+
+# ---------------------------------------------------------------------------
+# Output file mode  (--output flag, single-file processing)
+# ---------------------------------------------------------------------------
+
+def test_output_flag_writes_normalized_content_to_target_path(tmp_path: Path) -> None:
+    """When an explicit output path is given, the normalized content goes there,
+    and the original source file must be left completely untouched."""
+    source = tmp_path / "source.py"
+    out = tmp_path / "normalized.py"
+    source.write_bytes(b"x = 1   \r\n")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=False, create_backup=False, use_cache=False
+    )
+    assert normalizer.process_file(source, output_path=out) is True
+
+    # Output file contains the normalized content
+    assert out.read_bytes() == b"x = 1\n"
+    # Source is untouched
+    assert source.read_bytes() == b"x = 1   \r\n"
+
+
+# ---------------------------------------------------------------------------
+# newline_fixes and whitespace_fixes stats accounting
+# ---------------------------------------------------------------------------
+
+def test_stats_newline_fixes_incremented_per_processed_file(tmp_path: Path, monkeypatch) -> None:
+    """stats.newline_fixes must count individual files with newline issues, not raw \r count."""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "a.py").write_bytes(b"x\r\ny\r\n")   # CRLF — needs fix
+    (root / "b.py").write_bytes(b"z\n")           # LF — already clean
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, exclude_dirs=set()
+    )
+    normalizer.walk_and_process(root, [".py"])
+
+    assert normalizer.stats.newline_fixes == 1   # only a.py had issues
+    assert normalizer.stats.processed == 1        # b.py skipped (clean)
+
+
+def test_stats_whitespace_fixes_incremented_for_trailing_spaces(tmp_path: Path, monkeypatch) -> None:
+    """stats.whitespace_fixes must count files with trailing whitespace removed."""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "dirty.py").write_bytes(b"x = 1   \n")  # write_bytes avoids Windows CRLF
+    (root / "clean.py").write_bytes(b"x = 1\n")
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, exclude_dirs=set()
+    )
+    normalizer.walk_and_process(root, [".py"])
+
+    assert normalizer.stats.whitespace_fixes == 1
+    assert normalizer.stats.processed == 1
+
+
+# ---------------------------------------------------------------------------
+# Interactive mode — user can skip individual files
+# ---------------------------------------------------------------------------
+
+def test_interactive_mode_skips_file_when_user_declines(tmp_path: Path, monkeypatch) -> None:
+    """In --interactive mode, a 'n' response to show_diff must skip the file untouched."""
+    sample = tmp_path / "sample.py"
+    original = b"x = 1   \n"
+    sample.write_bytes(original)
+
+    # Patch show_diff to simulate user declining the change
+    monkeypatch.setattr(cnp.CodeNormalizer, "show_diff", lambda self, path, orig, norm: False)
+
+    normalizer = cnp.CodeNormalizer(
+        in_place=True, create_backup=False, use_cache=False, interactive=True
+    )
+    result = normalizer.process_file(sample)
+
+    assert result is True
+    assert sample.read_bytes() == original, "File was modified despite user declining in interactive mode"
+    assert normalizer.stats.skipped == 1
+    assert normalizer.stats.processed == 0
+

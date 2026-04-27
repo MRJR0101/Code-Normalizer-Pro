@@ -1,10 +1,10 @@
 name: "Code Normalizer Pro"
-description: "Normalizes code encodings, newlines, and whitespace"
+description: "Normalizes code encodings, line endings, and whitespace. Fails if any files need normalization."
 inputs:
   args:
     description: "Arguments to pass to code-normalizer-pro"
     required: false
-    default: ". --check"
+    default: ". --dry-run --fail-on-changes"
 runs:
   using: "composite"
   steps:

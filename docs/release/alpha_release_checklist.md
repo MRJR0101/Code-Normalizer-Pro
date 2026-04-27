@@ -21,7 +21,7 @@ Ship the first public alpha package for Path 1.
    `python -m twine upload dist/*`
 
 ## Post-Release
-1. Tag release in GitHub (`v3.0.1-alpha.1` style).
+1. Tag release in GitHub (`v3.1.1` style).
 2. Update `CHANGELOG.md` with release date.
 3. Post outreach links and capture responses in `docs/launch/first_100_users.csv`.
 

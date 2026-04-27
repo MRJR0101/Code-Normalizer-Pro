@@ -127,6 +127,7 @@ def add(a, b):
 | `--log-file FILE`               | save execution logs to a file                                                      |
 | `--compress-logs`               | compress rotated log files (`.gz`)                                                 |
 | `-v, --verbose`                 | show detailed output                                                               |
+| `--fail-on-changes`             | exit 1 when `--dry-run` finds files that need normalization (for CI pipelines)     |
 
 ## pyproject.toml Configuration
 
@@ -219,6 +220,12 @@ runs where you know exactly what you are scanning).
 - C
 - C++
 - Java
+- JSON
+- Shell (bash -n)
+- Ruby
+- PHP
+- Perl
+- Lua
 
 ## Use Cases
 

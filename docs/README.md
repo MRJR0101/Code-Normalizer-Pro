@@ -1,644 +1,277 @@
-﻿# Code Normalizer Pro v3.0
+# Code Normalizer Pro — Full Reference
 
-**Production-Grade Code Normalization Tool**
-
----
-
-## 🚀 NEW in v3.0: High-Impact Features
-
-### 1. ⚡ **Parallel Processing**
-Process files across multiple CPU cores for 3-10x speedup on large codebases.
-
-```bash
-# Use all available cores
-python code_normalize_pro.py /path/to/project --parallel --in-place
-
-# Specify worker count
-python code_normalize_pro.py /path/to/project --parallel --workers 4
-```
-
-**Performance:**
-- Sequential: ~20-30 files/second
-- Parallel (4 cores): ~80-120 files/second
-- Parallel (8 cores): ~150-200 files/second
-
-**Benchmarks:**
-| Files | Sequential | Parallel (4 cores) | Speedup |
-|-------|------------|-------------------|---------|
-| 100   | 3.2s       | 1.1s              | 2.9x    |
-| 500   | 16.8s      | 4.3s              | 3.9x    |
-| 1000  | 33.5s      | 7.1s              | 4.7x    |
+**Version 3.1.1** | [PyPI](https://pypi.org/project/code-normalizer-pro/) | [GitHub](https://github.com/MRJR0101/Code-Normalizer-Pro)
 
 ---
 
-### 2. 🎯 **Pre-Commit Hook Generation**
-Automatically check code normalization before commits.
+## Install
 
 ```bash
-# Install hook in current git repo
-python code_normalize_pro.py --install-hook
-
-# Commit normally - hook runs automatically
-git commit -m "Update code"
-
-# Skip hook if needed
-git commit --no-verify -m "Update code"
-```
-
-**Hook Features:**
-- ✅ Checks only staged files
-- ✅ Runs on Python files by default
-- ✅ Shows which files need normalization
-- ✅ Prevents commit if normalization needed
-- ✅ Suggests fix command
-
-**Hook Output:**
-```
-🔍 Checking 5 Python file(s)...
-
-⚠️  Some files need normalization:
-  - main.py (125 chars whitespace)
-  - utils.py (45 chars whitespace)
-
-Run: python code_normalize_pro.py main.py utils.py --in-place
-Or add --no-verify to skip this check
+pip install code-normalizer-pro
 ```
 
 ---
 
-### 3. 💾 **Incremental Processing (Smart Caching)**
-Skip unchanged files using SHA256 hash verification.
+## What it does
 
-```bash
-# Enable caching (default on for --cache flag)
-python code_normalize_pro.py /path/to/project --cache --in-place
+Deterministic, non-semantic cleanup for source trees:
 
-# First run: processes all files
-# Second run: skips unchanged files (90%+ skip rate typical)
-```
+- Converts non-UTF-8 files (UTF-16, Windows-1252, Latin-1, ISO-8859-1) to UTF-8
+- Normalizes CRLF and bare CR line endings to LF
+- Removes trailing whitespace from every line
+- Enforces a final newline at end of file
+- Skips binary files automatically
 
-**How It Works:**
-1. Calculates SHA256 hash of each file
-2. Stores in `.normalize-cache.json`
-3. On subsequent runs, checks hash before processing
-4. Skips files with matching hashes
-
-**Cache File:**
-```json
-{
-  "main.py": {
-    "path": "main.py",
-    "hash": "a3f5c8...",
-    "last_normalized": "2026-02-09T12:30:45",
-    "size": 5432
-  }
-}
-```
-
-**Performance:**
-- First run: 100 files → 33s
-- Second run: 5 changed files → 2s (16x faster!)
+All changes are structural only. The tool never alters logic, identifiers, or values.
 
 ---
 
-### 4. 🌍 **Multi-Language Syntax Checking**
-Validate syntax for 8 languages after normalization.
+## Quick Start
 
 ```bash
-# Check Python, JavaScript, Go
-python code_normalize_pro.py /project -e .py -e .js -e .go --check
-```
+# Preview what would change
+code-normalizer-pro . --dry-run -e .py
 
-**Supported Languages:**
+# Apply in place
+code-normalizer-pro . --in-place -e .py
 
-| Language   | Extension | Checker Command       | Status |
-|------------|-----------|----------------------|--------|
-| Python     | `.py`     | `python -m py_compile` | ✅ Built-in |
-| JavaScript | `.js`     | `node --check`         | ✅ Requires Node.js |
-| TypeScript | `.ts`     | `tsc --noEmit`         | ✅ Requires TypeScript |
-| Go         | `.go`     | `gofmt -e`             | ✅ Requires Go |
-| Rust       | `.rs`     | `rustc --crate-type lib` | ✅ Requires Rust |
-| C          | `.c`      | `gcc -fsyntax-only`    | ✅ Requires GCC |
-| C++        | `.cpp`    | `g++ -fsyntax-only`    | ✅ Requires G++ |
-| Java       | `.java`   | `javac -Xstdout`       | ✅ Requires JDK |
-
-**Fallback Behavior:**
-- If checker not installed: Shows "checker not installed" (non-fatal)
-- If syntax invalid: Shows error message, continues processing
-- If timeout (>10s): Shows "timeout" (non-fatal)
-
-**Output:**
-```
-✓ main.py (in-place)
-  Syntax: ✓ OK
-
-✓ broken.js (in-place)
-  Syntax: ✗ Unexpected token
-
-✓ utils.go (in-place)
-  Syntax: ✓ OK
+# CI gate: fail if any file needs normalization
+code-normalizer-pro . --dry-run --fail-on-changes
 ```
 
 ---
 
-### 5. 🎮 **Interactive Mode**
-Review and approve changes file-by-file with diff preview.
+## All CLI Options
 
-```bash
-# Interactive approval
-python code_normalize_pro.py /path/to/project --interactive
-```
-
-**Interactive Workflow:**
-```
-======================================================================
-File: main.py
-======================================================================
-
-Line 15:
-  - def hello():    
-  + def hello():
-
-Line 23:
-  - print("world")    
-  + print("world")
-
-... and 8 more changes
-======================================================================
-Apply changes? [y]es / [n]o / [d]iff all / [q]uit: d
-
-[Shows all diffs...]
-
-Apply changes? [y]es / [n]o / [d]iff all / [q]uit: y
-✓ main.py (in-place)
-  Backup: main.backup_20260209_123045.py
-```
-
-**Commands:**
-- **y** - Apply changes to this file
-- **n** - Skip this file
-- **d** - Show all diffs (not just first 10)
-- **q** - Quit entire operation
-
-**Use Cases:**
-- Reviewing changes on critical production code
-- Learning what the normalizer changes
-- Selective normalization of mixed codebases
+| Flag | Description |
+|------|-------------|
+| `PATH` | File or directory to process (positional) |
+| `-e, --ext .EXT` | Process only this extension (repeatable; default: `.py`) |
+| `-o, --output FILE` | Output file — single-file mode only |
+| `--dry-run` | Preview changes without writing files |
+| `--fail-on-changes` | Exit 1 when `--dry-run` finds files that need normalization (CI use) |
+| `--in-place` | Edit files in place |
+| `--no-backup` | Skip backup creation (dangerous with `--in-place`) |
+| `--check` | Run per-language syntax validation; atomic: file is written only if the pre-flight check passes |
+| `--timeout, --syntax-timeout N` | Timeout in seconds per file for `--check` (default: 10) |
+| `--parallel` | Multi-core processing via `ProcessPoolExecutor` |
+| `--workers N` | Number of parallel workers (default: CPU count minus 1) |
+| `--cache / --no-cache` | Enable or disable the SHA256 incremental cache (default: on) |
+| `--interactive` | Approve changes file-by-file with diff preview |
+| `--exclude DIR` | Exclude a directory name from recursive walks (repeatable) |
+| `--no-default-excludes` | Disable the built-in exclusion set |
+| `--no-gitignore` | Do not skip files matched by `.gitignore` |
+| `--install-hook` | Install a git pre-commit hook in the current repository |
+| `--report-json FILE` | Save a JSON stats report |
+| `--report-html FILE` | Save an HTML stats report |
+| `--expand-tabs N` | Convert leading and inline tabs to N spaces |
+| `--max-lines N` | Skip files exceeding N lines |
+| `--log-file FILE` | Write execution logs to a file (rotated at 5 MB, kept 3) |
+| `--compress-logs` | Compress rotated log files (`.gz`) |
+| `-v, --verbose` | Show detailed per-file output |
 
 ---
 
-## 📋 Complete Feature List
+## Default Exclusion Set
 
-### v3.0 Pro Features
-- ✅ **Parallel Processing** - Multi-core performance
-- ✅ **Pre-Commit Hooks** - Git integration
-- ✅ **Incremental Processing** - Smart caching
-- ✅ **Multi-Language Syntax** - 8 languages supported
-- ✅ **Interactive Mode** - File-by-file approval
+When walking directories the following names are pruned before descending.
+This prevents the tool from modifying virtual environments, build artifacts,
+and third-party packages.
 
-### v2.0 Enhanced Features
-- ✅ **Dry-Run Mode** - Preview changes
-- ✅ **In-Place Editing** - Direct file modification
-- ✅ **Automatic Backups** - Timestamped safety copies
-- ✅ **Confirmation Prompts** - Prevent accidents
-- ✅ **Progress Tracking** - Visual feedback (tqdm)
-- ✅ **Detailed Statistics** - Comprehensive reporting
-- ✅ **Error Handling** - Continue on errors
-- ✅ **Skip Unchanged** - Performance optimization
+```
+.venv  venv  env  .env  site-packages  __pycache__
+.git  .hg  .svn  node_modules
+.tox  .mypy_cache  .pytest_cache  .ruff_cache  .cache
+dist  build  .eggs
+```
 
-### v1.0 Core Features
-- ✅ **Encoding Normalization** - UTF-8, UTF-16, Windows-1252, etc.
-- ✅ **Line Ending Fix** - CRLF → LF
-- ✅ **Whitespace Cleanup** - Remove trailing spaces
-- ✅ **Final Newline** - Ensure files end with \n
-- ✅ **Binary Detection** - Skip non-text files
+Add more with `--exclude DIR`. Disable entirely with `--no-default-excludes`
+(use only for surgical single-directory runs where you know what is in scope).
 
 ---
 
-## 🎯 Usage Examples
+## Supported Encodings
 
-### Basic Usage
+utf-8, utf-8-sig, utf-16, utf-16-le, utf-16-be, windows-1252, latin-1, iso-8859-1
+
+---
+
+## Supported Syntax Checkers (`--check`)
+
+| Language | Checker | Requirement |
+|----------|---------|-------------|
+| Python | `python -m py_compile` | Built-in |
+| JavaScript | `node --check` | Node.js |
+| TypeScript | `tsc --noEmit` | TypeScript |
+| Go | `gofmt -e` | Go toolchain |
+| Rust | `rustc --crate-type lib` | Rust toolchain |
+| C | `gcc -fsyntax-only` | GCC |
+| C++ | `g++ -fsyntax-only` | G++ |
+| Java | `javac` | JDK |
+| JSON | `python -m json.tool` | Built-in |
+| Shell | `bash -n` | bash |
+| Ruby | `ruby -c` | Ruby |
+| PHP | `php -l` | PHP |
+| Perl | `perl -c` | Perl |
+| Lua | `luac -p` | Lua |
+
+If a checker is not installed the file is still normalized; the syntax result
+is reported as "No checker available" rather than failing the run.
+
+---
+
+## Safety Model
+
+- **Dry-run by default for inspection** — `--dry-run` never writes files
+- **Atomic in-place writes** — files are staged to a `.cnp-tmp` sibling,
+  syntax-checked in memory, then committed via `os.replace`; if the check
+  fails the original is untouched
+- **Automatic timestamped backups** — created before every in-place write
+  (disable with `--no-backup`)
+- **Binary detection** — files with null bytes are skipped
+- **Symlink / junction cycle detection** — walkers cannot infinite-loop
+- **Cache persists on Ctrl-C** — interrupted runs resume without re-scanning
+- **No network calls, no telemetry**
+
+---
+
+## Incremental Cache
+
+The cache file (`.normalize-cache.json`) is placed beside the directory being
+processed. It stores SHA256 hash, size, and mtime per file. On the next run,
+files whose mtime and size match are skipped without reading content.
 
 ```bash
-# Dry run (preview only)
-python code_normalize_pro.py /project --dry-run
-
-# In-place edit (default)
-python code_normalize_pro.py /project -e .py --in-place
-
-# Create clean copies
-python code_normalize_pro.py /project -e .py
+# Disable cache for one run
+code-normalizer-pro . --in-place --no-cache
 ```
 
-### Advanced Workflows
+---
 
-```bash
-# Fast parallel processing with caching
-python code_normalize_pro.py /project --parallel --cache --in-place
+## pyproject.toml Configuration
 
-# Interactive review with syntax checking
-python code_normalize_pro.py /project --interactive --check
+Persist your team's defaults so you don't have to repeat CLI flags.
 
-# Multi-language normalization
-python code_normalize_pro.py /project -e .py -e .js -e .ts -e .go --parallel
-
-# No backups (faster, dangerous)
-python code_normalize_pro.py /project --in-place --no-backup
+```toml
+[tool.code-normalizer-pro]
+ext         = [".py", ".js", ".ts"]
+expand_tabs = 4
+parallel    = true
+workers     = 4
+max_lines   = 10000
+log_file    = "logs/normalizer.log"
+compress_logs = true
 ```
 
-### Git Workflow
+---
 
-```bash
-# Install pre-commit hook
-cd /my-project
-python code_normalize_pro.py --install-hook
+## CI Integration
 
-# Normalize before first commit
-python code_normalize_pro.py . --in-place --parallel
-
-# Future commits auto-checked
-git add .
-git commit -m "Feature update"  # Hook runs automatically
-```
-
-### CI/CD Integration
+### GitHub Actions — normalization gate
 
 ```yaml
-# .github/workflows/code-check.yml
-name: Code Normalization Check
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.12"
+- run: pip install code-normalizer-pro
+- run: code-normalizer-pro . --dry-run --fail-on-changes
+```
 
-on: [push, pull_request]
+### GitHub Actions — use the bundled action
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Check Code Normalization
-        run: |
-          python code_normalize_pro.py . --dry-run
-          if [ $? -ne 0 ]; then
-            echo "Code needs normalization!"
-            exit 1
-          fi
+```yaml
+- uses: MRJR0101/Code-Normalizer-Pro@v3.1.1
+  with:
+    args: ". --dry-run --fail-on-changes"
+```
+
+### pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/MRJR0101/Code-Normalizer-Pro
+    rev: v3.1.1
+    hooks:
+      - id: code-normalizer-pro
 ```
 
 ---
 
-## 📊 Performance Comparison
+## Git Pre-Commit Hook (built-in)
 
-### Processing Speed
+```bash
+cd your-repo
+code-normalizer-pro --install-hook
+```
 
-| Mode         | 100 files | 500 files | 1000 files |
-|-------------|-----------|-----------|------------|
-| Sequential  | 3.2s      | 16.8s     | 33.5s      |
-| Parallel x4 | 1.1s      | 4.3s      | 7.1s       |
-| Parallel x8 | 0.8s      | 2.9s      | 4.8s       |
-
-### Cache Hit Rate
-
-| Scenario           | Files Processed | Cache Hits | Speed  |
-|-------------------|-----------------|------------|--------|
-| First run         | 1000/1000       | 0%         | 33.5s  |
-| No changes        | 0/1000          | 100%       | 0.8s   |
-| 5% changed        | 50/1000         | 95%        | 2.1s   |
-| 20% changed       | 200/1000        | 80%        | 7.3s   |
-
-### Memory Usage
-
-- **Sequential:** ~50-100 MB (one file at a time)
-- **Parallel x4:** ~200-400 MB (4 files simultaneously)
-- **Cache:** +5-10 MB (hash database)
+The hook checks all staged Python files in dry-run mode and blocks the commit
+if any need normalization. Run `git commit --no-verify` to bypass.
 
 ---
 
-## 🔧 Configuration
+## Interactive Mode
 
-### Command-Line Options
+Review each file before writing:
 
 ```bash
-# Processing modes
---dry-run              Preview without changes
---in-place             Modify files directly
---interactive          File-by-file approval
-
-# Performance
---parallel             Use multi-core processing
---workers N            Specify worker count
---cache                Enable incremental processing
---no-cache             Disable cache (process all)
-
-# Safety
---no-backup            Skip backup creation (dangerous)
---check                Validate syntax after normalization
-
-# Git integration
---install-hook         Install pre-commit hook
-
-# Extensions
--e .py                 Process Python files
--e .js                 Process JavaScript files
--e .go                 Process Go files
-
-# Output
--v, --verbose          Show detailed progress
+code-normalizer-pro . --interactive --in-place
 ```
 
-### Environment Variables
+At the prompt: `y` apply, `n` skip, `d` show full diff, `q` quit.
+
+---
+
+## Reports
 
 ```bash
-# Force UTF-8 encoding
-export PYTHONIOENCODING=utf-8
+# JSON stats after a run
+code-normalizer-pro . --in-place --report-json run_stats.json
 
-# Set CPU count for parallel processing
-export NORMALIZE_WORKERS=8
+# HTML stats after a run
+code-normalizer-pro . --in-place --report-html run_stats.html
 ```
 
 ---
 
-## 🛠️ Installation
+## Version History
 
-### Requirements
+### v3.1.1 (2026-04-06)
+- `--fail-on-changes` flag: exit 1 from `--dry-run` when normalization is needed
+- Parallel `--check` stats fixed: `syntax_checks_failed` was dropped from workers
+  that returned `success=False`; now merged correctly
+- `Syntax: [OK]` now surfaces the reason string (e.g. `rustc not installed`)
+- Confirmation prompt accepts `y`, `yes`, any case, with surrounding whitespace
+- Dead `syntax_check()` method removed; `syntax_check_text` retained
 
-**Core (Required):**
-- Python 3.10+
+### v3.1.0 (2026-04-06)
+- `--exclude DIR` and `--no-default-excludes` flags
+- `DEFAULT_EXCLUDE_DIRS` set (18 common noise directories)
+- `--syntax-timeout` flag
+- Symlink and junction cycle detection
+- Atomic in-place writes: pre-flight syntax check before any write
+- Cache persisted on `KeyboardInterrupt` and fatal exceptions
+- Microsecond-resolution backup filenames (parallel-safe)
+- Plain ASCII console output (no Unicode symbols)
+- `newline_fixes` counter corrected (no longer double-counts CRLF)
+- Subprocess encoding fixed for non-UTF-8 terminals (Windows cp1252)
 
-**Optional (Recommended):**
-```bash
-pip install tqdm  # Progress bars
-```
+### v3.0.0 (2026-02-09)
+- Parallel processing via `ProcessPoolExecutor`
+- SHA256 incremental caching
+- Pre-commit git hook generation (`--install-hook`)
+- Multi-language syntax checking (Python, JS, TS, Go, Rust, C, C++, Java)
+- Interactive per-file approval mode with diff preview
 
-**Syntax Checkers (Optional):**
-- Node.js - for JavaScript syntax checking
-- TypeScript - for TypeScript syntax checking
-- Go - for Go syntax checking
-- Rust - for Rust syntax checking
-- GCC/G++ - for C/C++ syntax checking
-- Java JDK - for Java syntax checking
+### v2.0.0 (2026-02-09)
+- Dry-run mode, in-place editing, timestamped backups
+- tqdm progress bars, detailed statistics, Windows UTF-8 fix
 
-### Installation
-
-```bash
-# Download code_normalize_pro.py
-wget https://your-url/code_normalize_pro.py
-
-# Make executable
-chmod +x code_normalize_pro.py
-
-# Run
-python code_normalize_pro.py --help
-```
-
-### System Integration
-
-```bash
-# Add to PATH (Linux/Mac)
-sudo ln -s $(pwd)/code_normalize_pro.py /usr/local/bin/normalize
-
-# Use anywhere
-cd /any/project
-normalize . --parallel --in-place
-```
+### v1.0.0 (2026-02-09)
+- UTF-8 encoding normalization, CRLF→LF, trailing whitespace, final newline, binary skip
 
 ---
 
-## 📖 Real-World Examples
+## License
 
-### Example 1: Clean Legacy Codebase
-
-```bash
-# Scenario: 1000+ file legacy project with mixed encodings
-
-# Step 1: Dry run to see scope
-python code_normalize_pro.py /legacy-project --dry-run
-
-# Output:
-# Total files: 1,234
-# Encoding changes: 156 (UTF-16 → UTF-8)
-# Newline fixes: 892 (CRLF → LF)
-# Whitespace: 45,231 chars to remove
-
-# Step 2: Normalize with parallel processing
-python code_normalize_pro.py /legacy-project --parallel --in-place
-
-# Step 3: Verify with cache (should skip all)
-python code_normalize_pro.py /legacy-project --cache --dry-run
-# Output: "✨ All files already normalized!"
-```
-
-### Example 2: Team Standardization
-
-```bash
-# Scenario: Enforce standards across team
-
-# 1. Install pre-commit hook in repo
-cd /team-project
-python code_normalize_pro.py --install-hook
-
-# 2. Normalize existing code
-python code_normalize_pro.py . --parallel --in-place
-
-# 3. Commit standardized code
-git add .
-git commit -m "Standardize code formatting"
-
-# 4. Future commits auto-checked
-# Team members get errors if code not normalized
-```
-
-### Example 3: CI/CD Pipeline
-
-```bash
-# Scenario: Automated quality checks
-
-# In CI pipeline:
-python code_normalize_pro.py . --dry-run --parallel
-
-# If exit code != 0, build fails
-# Developer sees which files need normalization
-# Can run locally: python code_normalize_pro.py <files> --in-place
-```
-
-### Example 4: Multi-Language Project
-
-```bash
-# Scenario: Full-stack app (Python + JavaScript + Go)
-
-# Normalize all languages with syntax checking
-python code_normalize_pro.py . \
-  -e .py -e .js -e .ts -e .go \
-  --parallel \
-  --check \
-  --in-place
-
-# Output shows syntax errors across all languages:
-# ✓ main.py (in-place) - Syntax: ✓ OK
-# ✓ app.js (in-place) - Syntax: ✓ OK
-# ✗ broken.ts (in-place) - Syntax: ✗ Unexpected token
-# ✓ server.go (in-place) - Syntax: ✓ OK
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Issue: "Process killed" / Out of Memory
-
-**Cause:** Too many parallel workers  
-**Solution:**
-```bash
-# Reduce workers
-python code_normalize_pro.py . --parallel --workers 2
-
-# Or use sequential
-python code_normalize_pro.py . --in-place
-```
-
-### Issue: Cache not working
-
-**Check cache file:**
-```bash
-ls -la .normalize-cache.json
-
-# If missing, cache disabled
-# Enable with:
-python code_normalize_pro.py . --cache --in-place
-```
-
-### Issue: Syntax checker not found
-
-**Check installation:**
-```bash
-# Python
-python -m py_compile --help
-
-# Node.js
-node --version
-
-# TypeScript
-tsc --version
-
-# Go
-go version
-```
-
-**Solution:** Install missing checker or skip syntax checking
-
-### Issue: Hook not running
-
-**Check hook installation:**
-```bash
-ls -la .git/hooks/pre-commit
-
-# Should be executable
-chmod +x .git/hooks/pre-commit
-
-# Test manually
-.git/hooks/pre-commit
-```
-
----
-
-## 📈 Benchmark Results
-
-**Test Environment:**
-- CPU: AMD Ryzen 9 / Intel i7
-- RAM: 16GB
-- Storage: NVMe SSD
-- Files: Python codebase, avg 200 lines/file
-
-**Results:**
-
-| Workers | 100 files | 500 files | 1000 files | 5000 files |
-|---------|-----------|-----------|------------|------------|
-| 1       | 3.2s      | 16.8s     | 33.5s      | 175.2s     |
-| 2       | 1.8s      | 9.1s      | 18.3s      | 94.5s      |
-| 4       | 1.1s      | 4.3s      | 7.1s       | 51.2s      |
-| 8       | 0.8s      | 2.9s      | 4.8s       | 38.7s      |
-
-**Speedup Factor:**
-- 2 workers: 1.8x
-- 4 workers: 4.7x
-- 8 workers: 4.5x (diminishing returns)
-
----
-
-## 🔒 Security & Safety
-
-### File Integrity
-
-- ✅ SHA256 hash verification
-- ✅ Automatic backups before changes
-- ✅ Dry-run mode for testing
-- ✅ Binary file detection (skip)
-- ✅ No external network calls
-- ✅ No code execution from files
-
-### Data Protection
-
-- ✅ Backups timestamped (no overwrites)
-- ✅ Confirmation prompts for bulk operations
-- ✅ Interactive mode for critical files
-- ✅ Cache stored locally only
-- ✅ No telemetry or data collection
-
----
-
-## 📝 Version History
-
-### v3.0 Pro (2026-02-09)
-- ✅ Added parallel processing (3-10x faster)
-- ✅ Added pre-commit hook generation
-- ✅ Added incremental processing with SHA256 caching
-- ✅ Added multi-language syntax checking (8 languages)
-- ✅ Added interactive mode with diff preview
-
-### v2.0 Enhanced (2026-02-09)
-- ✅ Added dry-run mode
-- ✅ Added in-place editing with backups
-- ✅ Added progress tracking (tqdm)
-- ✅ Added detailed statistics
-- ✅ Fixed Windows UTF-8 encoding
-- ✅ Fixed argparse bug
-
-### v1.0 Original
-- ✅ Basic encoding normalization
-- ✅ Line ending fixes
-- ✅ Whitespace cleanup
-
----
-
-## 🤝 Contributing
-
-Feature requests and bug reports welcome!
-
-**Planned Features:**
-- Git staged files mode (`--git-staged`)
-- `.gitignore` pattern support
-- HTML diff reports
-- Plugin system for custom rules
-- VS Code extension
-
----
-
-## 📄 License
-
-MIT License - Free for personal and commercial use
-
----
-
-## 🎓 Learn More
-
-**Documentation:**
-- [Full README](README_ENHANCED.md)
-- [Test Report](TEST_REPORT.md)
-- [API Reference](API.md) (coming soon)
-
-**Support:**
-- GitHub Issues: [link]
-- Email: [your-email]
-
----
-
-**Code Normalizer Pro v3.0** - Production-ready code normalization
+MIT License — Copyright (c) 2026 Michael Rawls Jr.
