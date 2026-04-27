@@ -1,4 +1,4 @@
-# VERIFY — Code Normalizer Pro v3.1.1
+# VERIFY — Code Normalizer Pro v3.2.0
 
 Run these steps in order to confirm the project is healthy after any change.
 
@@ -21,13 +21,34 @@ pip install -e ".[dev]"
 python -m pytest -v
 ```
 
-Expected: 17 passed, 0 failed, 0 errors.
+Expected: 67 passed, 0 failed, 0 errors.
+
+```powershell
+# With coverage report
+python -m pytest -q --cov=code_normalizer_pro --cov-report=term-missing
+```
+
+Expected: coverage >= 80%.
 
 ---
 
-## 3. CLI smoke checks
+## 3. Lint and type checks
 
 ```powershell
+ruff check .
+mypy code_normalizer_pro
+```
+
+Expected: `All checks passed!` from ruff; no errors from mypy.
+
+---
+
+## 4. CLI smoke checks
+
+```powershell
+# Version
+code-normalizer-pro --version
+
 # Help
 code-normalizer-pro --help
 
@@ -46,7 +67,7 @@ code-normalizer-pro files\smoke_case.py --dry-run --check
 
 ---
 
-## 4. Build verification
+## 5. Build verification
 
 ```powershell
 pip install build twine
@@ -56,7 +77,7 @@ python -m twine check dist\*
 
 Expected: `Checking dist\...: PASSED` for both the `.whl` and `.tar.gz`.
 
-Inspect the wheel contents to confirm all three package files are present:
+Inspect the wheel contents to confirm all package files are present:
 
 ```powershell
 python -c "
@@ -73,7 +94,7 @@ Expected entries: `code_normalizer_pro/__init__.py`, `code_normalizer_pro/cli.py
 
 ---
 
-## 5. Release readiness check
+## 6. Release readiness check
 
 ```powershell
 python scripts\release_prep.py
@@ -83,11 +104,11 @@ Expected: `ready_for_alpha_release: true`.
 
 ---
 
-## 6. Git status
+## 7. Git status
 
 ```powershell
 git status
 git log --oneline -5
 ```
 
-Expected: clean working tree, at least 2 commits on `main`.
+Expected: clean working tree, HEAD at v3.2.0 commit.

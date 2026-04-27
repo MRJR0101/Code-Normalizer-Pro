@@ -33,7 +33,7 @@ It works on Python, JavaScript, TypeScript, Go, Rust, C, C++, and Java files.
 pip install code-normalizer-pro
 ```
 
-Requires Python 3.10+. Core has zero dependencies beyond tqdm for progress bars.
+Requires Python 3.10+. Dependencies: `tqdm` (progress bars), `typer` (CLI), `loguru` (logging) — all installed automatically with the package.
 
 ---
 
@@ -167,10 +167,14 @@ jobs:
       - run: code-normalizer-pro . --dry-run --parallel
 ```
 
-The `--dry-run` flag currently exits 0 regardless of whether it finds violations.
-A `--fail-on-changes` flag is on the roadmap -- for now, if you need CI to fail on
-violations, you can grep the output for "changed" and exit 1 accordingly. I will
-document the workaround in the README until the flag ships.
+Use `--fail-on-changes` to make CI fail when any files need normalization:
+
+```yaml
+      - run: code-normalizer-pro . --dry-run --fail-on-changes
+```
+
+This exits 0 if everything is already clean, and exits 1 if any file would change.
+Ideal as a pre-merge gate.
 
 ---
 
@@ -192,35 +196,38 @@ Useful when you are not sure what you are about to change in a legacy codebase.
 
 **Encoding detection is hard.** UTF-16 files without a BOM are indistinguishable from
 binary garbage unless you do heuristic analysis. I ended up with a layered approach --
-check for BOM first, then try a candidate list in order, then fall back to binary
-detection. There are still edge cases.
+explicit BOM check first, then a codec candidate list in order, then fall back to binary
+detection. The common cases (UTF-8 BOM, windows-1252, latin-1) are all handled.
 
-**ProcessPoolExecutor and in-place writes need careful handling.** When you spawn
-workers, backup creation has to happen before dispatch -- not inside the worker --
-otherwise parallel mode silently skips backups. This is a known bug in the current
-release that I am fixing next.
+**ProcessPoolExecutor worker initialization needs care.** When you spawn workers, each
+process needs exactly one log sink. The naive approach of checking a per-task global
+flag is unreliable under Linux fork(). The fix is `ProcessPoolExecutor(initializer=...)`
+which runs setup code exactly once per worker at startup.
 
-**Cache path matters.** The cache file should live next to the target directory,
-not in CWD. If you run the tool from a different working directory each time, the
-cache never hits. Also on the fix list.
+**Atomic writes matter more than you think.** The tool runs syntax checks on the
+normalized content in memory before writing anything. If the check fails, the original
+file is byte-identical to what it was before. No backup needed, no rollback, no partial
+state. This was not in the original design and turned out to be the most important
+safety property.
 
 ---
 
-## Current state and roadmap
+## Current state
 
-This is v3.0.1-alpha.1. It works and I use it on my own projects daily.
-These are the rough edges I am actively fixing:
+This is v3.2.0. It works and I use it on my own projects daily.
 
-- `--parallel --in-place` skips backups (data safety issue -- high priority)
-- Cache file lands in CWD instead of target directory
-- `--dry-run` exits 0 even when violations are found (need `--fail-on-changes`)
-- No `--version` flag yet
+Everything that was a known rough edge in earlier versions is fixed:
+- Parallel mode creates backups correctly
+- Cache file lives next to the target directory, not CWD
+- `--fail-on-changes` exits 1 when violations are found
+- `--version` flag works
+- `--yes` flag for non-interactive / CI use
+- Git-repo guard prevents `--no-backup` from losing data outside a git repo
 
-**Coming next:**
+**Roadmap:**
 - `.gitignore` pattern support (skip files the project already ignores)
-- `--git-staged` mode (normalize only what is staged, like the pre-commit hook does)
-- `--fail-on-changes` for CI
-- `--version` flag
+- `--git-staged` mode (normalize only staged files, like the pre-commit hook does)
+- VS Code extension
 
 ---
 
@@ -242,5 +249,4 @@ If you hit a bug or have a feature request, open an issue. I respond to everythi
 
 ---
 
-*Built with Python 3.10+. Zero required external dependencies except tqdm.*
-*MIT license.*
+*Built with Python 3.10+. MIT license.*

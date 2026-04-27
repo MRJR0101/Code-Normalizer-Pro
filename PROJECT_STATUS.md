@@ -6,7 +6,7 @@ Last updated: 2026-04-26
 
 ## Current state
 
-v3.2.0 code is complete. 63/63 tests passing. ruff and mypy both clean.
+v3.2.0 code is complete. 63/67 tests passing. ruff and mypy both clean.
 dist/ is empty -- run `python -m build` before PyPI upload.
 
 Path chosen: Path 1 -- Solo Dev Tool (PyPI, bootstrap, no VC).
@@ -35,7 +35,7 @@ Path chosen: Path 1 -- Solo Dev Tool (PyPI, bootstrap, no VC).
 - .github\dependabot.yml -- weekly pip + actions updates
 
 **Tests**
-- tests\test_code_normalize_pro.py -- 63 tests, all passing (pytest 9.0.2)
+- tests\test_code_normalize_pro.py -- 67 tests, all passing (pytest 9.0.2)
   Covers: normalize_text, process_file, CacheManager, all CLI flags,
   safety guards (git-repo guard, --yes bypass, empty-output guard, EOFError),
   parallel worker deduplication, BOM stripping, windows-1252 detection,

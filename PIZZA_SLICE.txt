@@ -20,7 +20,7 @@ Current Source Of Truth
 
 Authoritative implementation:
 
-  code_normalizer_pro\code_normalizer_pro.py  (1481+ lines, v3.1.1)
+  code_normalizer_pro\code_normalizer_pro.py  (1582 lines, v3.2.0)
 
 CLI entry point:
 
@@ -28,7 +28,7 @@ CLI entry point:
 
 Package metadata:
 
-  code_normalizer_pro\__init__.py  (declares __version__ = "3.1.1")
+  code_normalizer_pro\__init__.py  (declares __version__ = "3.2.0")
 
 There is no src\ directory with active code. The src\ folder exists but
 contains only an empty .gitignore and is vestigial from an earlier layout.
@@ -44,14 +44,17 @@ Meaning Of The Naming
 Project State
 -------------
 
-Version 3.1.1. Not yet published (dist\ is empty; awaits first build).
+Version 3.2.0. Not yet published to PyPI (dist\ contains stale 3.1.1 artifacts;
+run python -m build to produce 3.2.0 artifacts before upload).
 Previous version 3.0.1 was published from the old CODE project.
 
 Verified behaviors:
-- 17 tests, all passing
-- CLI entry point works under editable install
+- 67 tests, all passing (ruff clean, mypy clean)
+- CLI entry point works under editable install; --version flag returns 3.2.0
 - Atomic writes, cache-on-interrupt, default-excludes, symlink cycle detection
-- --fail-on-changes flag for CI pipelines (new in 3.1.1)
+- --fail-on-changes flag for CI pipelines
+- --yes/-y flag for non-interactive use
+- Git-repo guard for --no-backup; empty-output guard; cache schema versioning
 
 Known Reality
 -------------

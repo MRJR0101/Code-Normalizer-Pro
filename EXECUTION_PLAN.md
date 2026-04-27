@@ -9,7 +9,7 @@
 ## TODAY (Day 1) - Pre-Launch Validation ✅
 
 ### Critical Path Items
-- [ ] Activate venv and run tests: `C:\Dev\PROJECTS\CODE\.venv\Scripts\activate; python -m pytest -q`
+- [ ] Activate venv and run tests: `C:\Dev\PROJECTS\Code-Normalizer-Pro-CLEAN\.venv\Scripts\activate; python -m pytest -q`
 - [ ] Validate package locally: `pip install -e .`
 - [ ] Test CLI smoke test: `code-normalizer-pro --help`
 - [ ] Review and finalize outreach posts
@@ -18,7 +18,7 @@
 ### Commands to Run
 ```powershell
 # Activate virtual environment
-Set-Location C:\Dev\PROJECTS\CODE
+Set-Location C:\Dev\PROJECTS\Code-Normalizer-Pro-CLEAN
 .\.venv\Scripts\Activate.ps1
 
 # Run tests
@@ -60,7 +60,7 @@ python -m twine check dist/*
 - [ ] Verify package page: https://pypi.org/project/code-normalizer-pro/
 - [ ] Test installation: `pip install code-normalizer-pro`
 - [ ] Create GitHub repository (if not exists)
-- [ ] Tag release: `git tag v3.0.1-alpha.1`
+- [ ] Tag release: `git tag v3.2.0`
 - [ ] Push tags: `git push --tags`
 
 ### Post-Release
@@ -131,7 +131,7 @@ python -m twine check dist/*
 
 ### Daily
 ```powershell
-Set-Location C:\Dev\PROJECTS\CODE
+Set-Location C:\Dev\PROJECTS\Code-Normalizer-Pro-CLEAN
 python scripts/launch_metrics.py
 ```
 

@@ -61,5 +61,9 @@
   "tests/test_code_normalize_pro.py::test_syntax_timeout_is_passed_to_subprocess",
   "tests/test_code_normalize_pro.py::test_utf8_bom_is_stripped_on_in_place_write",
   "tests/test_code_normalize_pro.py::test_windows1252_file_is_converted_to_utf8",
-  "tests/test_code_normalize_pro.py::test_yes_flag_skips_confirmation_prompt"
+  "tests/test_code_normalize_pro.py::test_yes_flag_skips_confirmation_prompt",
+  "tests/test_feedback_prioritizer.py::test_feedback_prioritizer_outputs_top_terms",
+  "tests/test_launch_metrics.py::test_launch_metrics_summary_and_cli",
+  "tests/test_release_prep.py::test_release_prep_reports_ready_with_required_files",
+  "tests/test_sales_pipeline_metrics.py::test_sales_pipeline_metrics_reports_mrr"
 ]
