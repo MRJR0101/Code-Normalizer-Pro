@@ -3,10 +3,10 @@ Last Updated: 2026-04-26
 ========================================
 
 ## STATUS
-Code COMPLETE as of v3.1.1 (2026-04-06).
+Code COMPLETE as of v3.2.0 (2026-04-26).
 Package: code_normalizer_pro\code_normalizer_pro.py (authoritative source).
 Strategic path: Path 1 (Solo Dev Tool).
-AS OF 2026-04-26: Zero PyPI launch tasks completed. Build artifacts not yet generated.
+AS OF 2026-04-26: Build artifacts not yet generated. PyPI launch tasks pending.
 
 ## RESOLVED (closed -- do not re-open without a regression test)
 
@@ -30,20 +30,24 @@ AS OF 2026-04-26: Zero PyPI launch tasks completed. Build artifacts not yet gene
 ~~7. --dry-run exits 0 even when violations found~~ -- RESOLVED in 3.1.1.
    Use --fail-on-changes flag to exit 1 when normalization is needed.
 
-## OPEN (fix before real-user release or marketing push)
+~~8. config\settings.py unwired~~ -- RESOLVED in 3.2.0. Decision documented:
+   pyproject.toml is the v3.x config mechanism. settings.py marked as planned
+   v4.x env-var layer. No wiring needed for PyPI launch.
 
-8.  config\settings.py -- env-var loader exists but nothing imports it.
-    Wire it up to the CLI or remove it. Low risk, low priority.
+## OPEN (fix before first marketing push)
 
 9.  examples\ directory is empty. Populate with 2-3 real usage examples
-    before first marketing push (Dev.to / HN).
+    before first marketing push (Dev.to / HN). Suggested files:
+    - examples\normalize_repo.sh  -- one-liner bash/pwsh usage
+    - examples\ci_gate.yml        -- GitHub Actions step using --fail-on-changes
+    - examples\pyproject_config.toml -- sample [tool.code-normalizer-pro] block
 
-## LAUNCH TASKS -- ALL PENDING
+## LAUNCH TASKS
 
 10. Build: python -m build --sdist --wheel
 11. Verify: python -m twine check dist/*
 12. Day 2: Upload to TestPyPI and verify install in fresh venv
-13. Day 3: Upload to PyPI, tag v3.1.1, push to GitHub
+13. Day 3: Upload to PyPI, tag v3.2.0, push to GitHub
 14. Day 4: Write and post Dev.to article
 15. Day 5: Post Show HN to Hacker News
 16. Day 6: Post to r/Python
