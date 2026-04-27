@@ -27,6 +27,11 @@ try:
     from tqdm import tqdm
     HAS_TQDM = True
 except ImportError:
+
+    def tqdm(iterable, **_kwargs):  # type: ignore[no-redef]
+        """No-op fallback used when tqdm is not installed."""
+        return iterable
+
     HAS_TQDM = False
 
 

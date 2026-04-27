@@ -36,13 +36,15 @@ except Exception:
 
 # Fix Windows console encoding so UTF-8 output doesn't crash on cp1252 terminals
 if sys.platform == "win32":
-    try:
+    import io as _io
+    if isinstance(sys.stdout, _io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8")
+    else:
+        sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    if isinstance(sys.stderr, _io.TextIOWrapper):
         sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+    else:
+        sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
@@ -227,7 +229,7 @@ def cli_main(
     tm = TelemetryManager(enabled=telemetry)
     try:
         if path.is_dir():
-            normalizer.walk_and_process(path, ext, check_syntax=check)
+            normalizer.walk_and_process(path, ext or [], check_syntax=check)
         else:
             if not path.exists():
                 logger.error(f"File not found: {path}")

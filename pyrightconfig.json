@@ -1,0 +1,10 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.10",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "include": ["code_normalizer_pro"],
+  "exclude": ["**/__pycache__", ".venv", "build", "dist"]
+}
