@@ -36,3 +36,7 @@ dev = ["pytest>=8", "pytest-cov"]
 
 [project.scripts]
 code-normalizer-pro = "code_normalizer_pro.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["code_normalizer_pro*"]
