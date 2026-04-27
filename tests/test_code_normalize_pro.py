@@ -85,7 +85,7 @@ def test_install_git_hook_uses_current_python_and_checks_failures(tmp_path: Path
     assert hook.exists()
     hook_text = hook.read_text(encoding="utf-8")
 
-    assert "[sys.executable," in hook_text
+    assert repr(sys.executable) in hook_text  # repr form baked in at install time
     assert "for file_path in files" in hook_text
     assert 'file_path, "--dry-run"' in hook_text
     assert "result.returncode != 0" in hook_text
@@ -1407,4 +1407,6 @@ def test_interactive_mode_skips_file_when_user_declines(tmp_path: Path, monkeypa
     assert sample.read_bytes() == original, "File was modified despite user declining in interactive mode"
     assert normalizer.stats.skipped == 1
     assert normalizer.stats.processed == 0
+
+
 

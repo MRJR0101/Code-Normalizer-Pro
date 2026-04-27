@@ -1342,7 +1342,7 @@ def main():
     needs_normalization = []
     for file_path in files:
         result = subprocess.run(
-            [sys.executable, {repr(str(normalizer_script))}, file_path, "--dry-run"],
+            [{repr(sys.executable)}, {repr(str(normalizer_script))}, file_path, "--dry-run"],
             capture_output=True,
             text=True
         )
@@ -1586,6 +1586,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
