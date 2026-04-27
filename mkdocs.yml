@@ -1,0 +1,72 @@
+site_name: Code Normalizer Pro
+site_description: Production-grade code normalization for encoding, newlines, and whitespace hygiene.
+site_author: Michael Rawls Jr.
+site_url: https://mrjr0101.github.io/Code-Normalizer-Pro/
+repo_url: https://github.com/MRJR0101/Code-Normalizer-Pro
+repo_name: MRJR0101/Code-Normalizer-Pro
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: README.md
+  - Architecture: ARCHITECTURE.md
+  - History: CODE_NORMALIZER_HISTORY.md
+  - Operations:
+      - Runbook: RUNBOOK.md
+      - Test Report: TEST_REPORT.md
+      - Verify Legacy: VERIFY_legacy.md
+  - Launch:
+      - Dev.to Article: launch/devto_article.md
+      - Outreach Calendar: launch/outreach_calendar_week1.md
+      - Execution Tracker: launch/path1_execution_tracker.md
+      - Outreach Plan: launch/path1_outreach.md
+      - Top Pain Points: launch/top_pain_points.md
+  - Community:
+      - Plan: community/community_plan.md
+  - Release:
+      - Alpha Checklist: release/alpha_release_checklist.md
+  - Sales:
+      - Customer Offer: sales/customer_offer_template.md
+      - Pricing: sales/path1_pricing.md
+
+docs_dir: docs
+site_dir: site
