@@ -159,7 +159,7 @@ compress_logs = true
   worked; "yes" was silently rejected as "no".
 - **Dead `syntax_check` method removed**; `syntax_check_text`
   kept as part of the public API.
-- **Removed unused `shutil` import**.
+
 - **Double-space `[!]  ` typos fixed** in confirmation prompt
   and generated git hook script.
 
