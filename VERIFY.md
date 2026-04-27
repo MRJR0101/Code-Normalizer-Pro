@@ -7,7 +7,7 @@ Run these steps in order to confirm the project is healthy after any change.
 ## 1. Environment setup
 
 ```powershell
-cd C:\Dev\PROJECTS\Code-Normalizer-Pro-CLEAN
+cd <your-project-directory>
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 python -m pytest -v
 ```
 
-Expected: 67 passed, 0 failed, 0 errors.
+Expected: all tests passed, 0 failed, 0 errors.
 
 ```powershell
 # With coverage report
@@ -61,8 +61,8 @@ code-normalizer-pro . --dry-run --fail-on-changes -e .py
 # Parallel mode
 code-normalizer-pro . --dry-run --parallel -e .py
 
-# Syntax check mode
-code-normalizer-pro files\smoke_case.py --dry-run --check
+# Syntax check mode against any .py file
+code-normalizer-pro <path-to-file>.py --dry-run --check
 ```
 
 ---
@@ -94,17 +94,7 @@ Expected entries: `code_normalizer_pro/__init__.py`, `code_normalizer_pro/cli.py
 
 ---
 
-## 6. Release readiness check
-
-```powershell
-python scripts\release_prep.py
-```
-
-Expected: `ready_for_alpha_release: true`.
-
----
-
-## 7. Git status
+## 6. Git status
 
 ```powershell
 git status
