@@ -184,12 +184,12 @@
 4. ~~Cache schema version field~~ ✓ (`_schema_version: 1` + migration shim in CacheManager)
 5. ~~`--version` flag~~ ✓ (`code-normalizer-pro --version` implemented)
 
-**Do during launch week (Day 1–3):**
-6. `release.yml` — tag-triggered PyPI publish automation (ci.yml already has publish job on `release` events — may already be complete; verify)
-7. Non-goals section in README
-8. `docs/RUNBOOK.md` — basic troubleshooting and backup restore steps
-9. Clean `build/lib/`, `Round-2-Edge-Test.txt`, and other scratch files before tagging
-10. Enable GitHub branch protection requiring CI check to pass
+**Do during launch week — COMPLETE:**
+6. ~~Release automation~~ ✓ (`ci.yml` `publish` job fires on GitHub Release events; tag → release → PyPI in one step; rollback procedure documented in QUICK_REFERENCE.md)
+7. ~~Non-goals section in README~~ ✓ ("What This Tool Is NOT" added; `--version` and `--yes` added to CLI table)
+8. ~~`docs/RUNBOOK.md`~~ ✓ (troubleshooting, backup restore, cache reset, release rollback)
+9. ~~Scratch file cleanup~~ ✓ (`Round-2-Edge-Test.txt` untracked; `pytest-cache-files-*/` added to `.gitignore`)
+10. Enable GitHub branch protection — **manual step**: repo Settings → Branches → Add rule → require `CI` status check on `main`
 
 **Do post-launch (Month 1–2):**
 11. Pre-commit hooks (`.pre-commit-config.yaml`)

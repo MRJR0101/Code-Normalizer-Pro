@@ -45,6 +45,14 @@ Use `code-normalizer-pro` when you need:
 - consistent source files before CI or refactoring
 - reduced diff noise in Git history
 
+## What This Tool Is NOT
+
+- **Not a code formatter.** It does not reformat code style, indent blocks, or reorder imports. Use Black, Ruff, or Prettier for that.
+- **Not a linter.** It does not flag logic errors, style violations, or type issues. Use Ruff, Flake8, or mypy for that.
+- **Not a semantic transformer.** It never changes what your code means — only invisible byte-level properties (encoding, line endings, trailing whitespace, final newline).
+- **Not language-aware.** It treats all supported text files the same way regardless of language syntax.
+- **Not a replacement for `git` line-ending attributes.** It complements `.gitattributes` but does not replace it.
+
 ## Features
 
 - UTF-8 normalization for supported text encodings
@@ -128,6 +136,8 @@ def add(a, b):
 | `--compress-logs`               | compress rotated log files (`.gz`)                                                 |
 | `-v, --verbose`                 | show detailed output                                                               |
 | `--fail-on-changes`             | exit 1 when `--dry-run` finds files that need normalization (for CI pipelines)     |
+| `-y, --yes`                     | skip confirmation prompt; also overrides the `--no-backup` git-repo guard          |
+| `--version`                     | print the installed version and exit                                               |
 
 ## pyproject.toml Configuration
 
