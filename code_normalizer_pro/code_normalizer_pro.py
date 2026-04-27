@@ -62,6 +62,13 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
 
+# Version detection — importlib.metadata avoids circular import when run as a script
+try:
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("code-normalizer-pro")
+except Exception:
+    __version__ = "unknown"
+
 # Fix Windows console encoding
 if sys.platform == 'win32':
     try:
@@ -1377,7 +1384,6 @@ if __name__ == "__main__":
 
 def _version_callback(value: bool) -> None:
     if value:
-        from code_normalizer_pro import __version__
         print(f"code-normalizer-pro {__version__}")
         raise typer.Exit()
 
@@ -1524,7 +1530,7 @@ def cli_main(
     )
 
     logger.info("="*70)
-    logger.info("CODE NORMALIZER PRO v3.1.1")
+    logger.info(f"CODE NORMALIZER PRO v{__version__}")
     logger.info("="*70)
 
     # Process
@@ -1580,3 +1586,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
