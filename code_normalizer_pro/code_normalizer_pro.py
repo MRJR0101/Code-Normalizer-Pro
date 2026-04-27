@@ -51,6 +51,9 @@ from code_normalizer_pro.engine.reporter import (
 from code_normalizer_pro.engine.cache import (
     FileCache,
     CacheManager,
+    CacheBackend,
+    JsonCacheBackend,
+    SqliteCacheBackend,
     CACHE_FILE,
     CACHE_SCHEMA_VERSION,
 )
@@ -89,6 +92,9 @@ __all__ = [
     "FileCache",
     # Engine
     "CacheManager",
+    "CacheBackend",
+    "JsonCacheBackend",
+    "SqliteCacheBackend",
     "CodeNormalizer",
     # Constants
     "SYNTAX_CHECKERS",

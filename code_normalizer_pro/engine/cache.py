@@ -12,7 +12,9 @@ import json
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, runtime_checkable
+
+from typing import Protocol
 
 from loguru import logger
 
@@ -31,6 +33,54 @@ class FileCache:
     size: int
     mtime: float = 0.0
 
+
+
+# ---------------------------------------------------------------------------
+# CacheBackend Protocol
+# ---------------------------------------------------------------------------
+
+@runtime_checkable
+class CacheBackend(Protocol):
+    """Structural protocol for swappable cache backends.
+
+    Any class implementing these five methods is a valid CacheBackend.
+    The default implementation is CacheManager (JSON-file backed).
+    A SQLite-backed drop-in is planned for the v2.0 scaling milestone
+    (trigger: repos >50 K files where JSON I/O becomes a bottleneck).
+
+    Usage::
+
+        def build_cache(backend: CacheBackend) -> None:
+            backend.load()
+            ...
+
+        assert isinstance(CacheManager(), CacheBackend)   # True — structural
+    """
+
+    def load(self) -> None:
+        """Load cached entries from persistent storage."""
+        ...
+
+    def save(self) -> None:
+        """Persist cache entries to durable storage."""
+        ...
+
+    def get_file_hash(self, path: Path) -> str:
+        """Return a content hash (e.g. SHA-256 hex) for *path*."""
+        ...
+
+    def is_cached(self, path: Path) -> bool:
+        """Return True when *path* is unchanged since its last cache update."""
+        ...
+
+    def update(self, path: Path) -> None:
+        """Record the current state of *path* in the cache."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# CacheManager — default JSON-file backend
+# ---------------------------------------------------------------------------
 
 class CacheManager:
     """Manages a file-hash cache for incremental (skip-unchanged) processing.
@@ -70,6 +120,7 @@ class CacheManager:
         except Exception as e:
             logger.warning(f"Could not load cache: {e}")
             self.cache = {}
+
 
     def save(self) -> None:
         """Persist cache entries to disk atomically."""
@@ -115,3 +166,44 @@ class CacheManager:
             size=stat.st_size,
             mtime=stat.st_mtime,
         )
+
+
+
+# ---------------------------------------------------------------------------
+# Convenience aliases and future stubs
+# ---------------------------------------------------------------------------
+
+#: Alias so callers can write ``JsonCacheBackend()`` for clarity.
+JsonCacheBackend = CacheManager
+
+
+class SqliteCacheBackend:
+    """Placeholder for a future SQLite-backed cache implementation.
+
+    Swap in for ``CacheManager`` when JSON I/O becomes a bottleneck
+    (anticipated threshold: ~50 K files per run).
+
+    All methods raise ``NotImplementedError`` until the implementation lands.
+    The class satisfies ``CacheBackend`` structurally once implemented.
+    """
+
+    def __init__(self, cache_path: Optional[Path] = None) -> None:  # noqa: ARG002
+        raise NotImplementedError(
+            "SqliteCacheBackend is not yet implemented. "
+            "Use CacheManager (JsonCacheBackend) instead."
+        )
+
+    def load(self) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    def save(self) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    def get_file_hash(self, path: Path) -> str:  # pragma: no cover  # noqa: ARG002
+        raise NotImplementedError
+
+    def is_cached(self, path: Path) -> bool:  # pragma: no cover  # noqa: ARG002
+        raise NotImplementedError
+
+    def update(self, path: Path) -> None:  # pragma: no cover  # noqa: ARG002
+        raise NotImplementedError

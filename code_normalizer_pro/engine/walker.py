@@ -1,20 +1,38 @@
-"""Walker utilities: git-repo detection and pre-commit hook installation.
+"""Directory walk orchestration and git hook installation.
 
-walk_and_process() and the parallel/_sequential processing methods remain on
-CodeNormalizer for now because they share too much instance state to extract
-cleanly in a single pass.  The module-level functions here (_is_in_git_repo,
-install_git_hook) are self-contained and belong at this layer.
+Walk functions accept a ``CodeNormalizer`` instance as their first argument so
+they can be called from CodeNormalizer methods without creating a circular
+import.  The type annotation is guarded by ``TYPE_CHECKING`` so walker.py does
+not import from normalizer.py at runtime.
 """
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import traceback as _traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, List, Optional, Set
 
 from loguru import logger
 
+from code_normalizer_pro.engine.workers import _init_worker, process_file_worker
+
+if TYPE_CHECKING:
+    from code_normalizer_pro.engine.normalizer import CodeNormalizer
+
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+
+# ---------------------------------------------------------------------------
+# Git repo helpers
+# ---------------------------------------------------------------------------
 
 def _is_in_git_repo(path: Path) -> bool:
     """Return True if *path* is inside a git working tree."""
@@ -31,12 +49,7 @@ def _is_in_git_repo(path: Path) -> bool:
 
 
 def install_git_hook(hook_type: str = "pre-commit") -> bool:
-    """Write a pre-commit hook that runs the normalizer in dry-run mode.
-
-    The hook is installed into ``.git/hooks/`` in the current working directory.
-    The Python interpreter path is baked in at install time (not resolved at
-    hook-run time) so the hook always uses the same venv that generated it.
-    """
+    """Write a pre-commit hook that runs the normalizer in dry-run mode."""
     git_dir = Path(".git")
 
     if not git_dir.exists():
@@ -47,11 +60,6 @@ def install_git_hook(hook_type: str = "pre-commit") -> bool:
     hooks_dir.mkdir(exist_ok=True)
     hook_path = hooks_dir / hook_type
 
-    # Point to the package's compatibility shim so the hook entry point is
-    # stable even after the internal module layout changes.
-    # __file__ = code_normalizer_pro/engine/walker.py
-    # .parent   = code_normalizer_pro/engine/
-    # .parent.parent = code_normalizer_pro/
     normalizer_script = Path(__file__).resolve().parent.parent / "code_normalizer_pro.py"
 
     hook_script = f"""#!/usr/bin/env python3
@@ -61,7 +69,6 @@ import sys
 from pathlib import Path
 
 def main():
-    # Get staged Python files
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=ACM"],
         capture_output=True,
@@ -78,8 +85,6 @@ def main():
 
     print(f"[?] Checking {{len(files)}} Python file(s)...")
 
-    # Run normalizer in check mode, one file at a time. The CLI accepts a
-    # single positional path, so passing all files at once breaks argparse.
     needs_normalization = []
     for file_path in files:
         result = subprocess.run(
@@ -119,3 +124,202 @@ if __name__ == "__main__":
     logger.info("   Hook will check Python files before commit")
     logger.info("   Use 'git commit --no-verify' to skip check")
     return True
+
+
+# ---------------------------------------------------------------------------
+# Walk orchestration
+# ---------------------------------------------------------------------------
+
+def walk_and_process(
+    normalizer: "CodeNormalizer",
+    root: Path,
+    exts: List[str],
+    check_syntax: bool = False,
+) -> None:
+    """Process all matching files under *root*, respecting exclusions and gitignore."""
+    normalizer._ensure_cache_manager(root)
+
+    files: List[Path] = []
+    ext_set = {e.lower() for e in exts}
+    visited_real: Set[str] = set()
+    pruned_dirs = 0
+
+    for dirpath, dirnames, filenames in os.walk(str(root), followlinks=False):
+        try:
+            real = os.path.realpath(dirpath)
+        except OSError:
+            dirnames[:] = []
+            continue
+        if real in visited_real:
+            dirnames[:] = []
+            continue
+        visited_real.add(real)
+
+        before = len(dirnames)
+        dirnames[:] = [d for d in dirnames if d not in normalizer.exclude_dirs]
+        pruned_dirs += before - len(dirnames)
+
+        for fname in filenames:
+            if any(fname.lower().endswith(ext) for ext in ext_set):
+                fp = Path(dirpath) / fname
+                if not fp.is_symlink():
+                    files.append(fp)
+
+    if pruned_dirs and normalizer.verbose:
+        logger.info(f"[i] Pruned {pruned_dirs} excluded subdirectories from walk")
+
+    if normalizer.respect_gitignore and files:
+        try:
+            input_data = b"\0".join(
+                str(f.absolute()).encode("utf-8") for f in files
+            ) + b"\0"
+            res = subprocess.run(
+                ["git", "check-ignore", "-z", "--stdin"],
+                input=input_data,
+                capture_output=True,
+                cwd=root,
+            )
+            if res.returncode in (0, 1):
+                ignored = {p for p in res.stdout.split(b"\0") if p}
+                original_count = len(files)
+                files = [
+                    f for f in files
+                    if str(f.absolute()).encode("utf-8") not in ignored
+                ]
+                pruned_git = original_count - len(files)
+                if pruned_git and normalizer.verbose:
+                    logger.info(f"[i] Pruned {pruned_git} file(s) ignored by .gitignore")
+        except Exception:
+            pass
+
+    if not files:
+        logger.info(f"No files with extensions {exts} found in {root}")
+        return
+
+    files_to_process = files
+    if normalizer.use_cache and normalizer.cache:
+        uncached, cached_hits = [], 0
+        for fp in files:
+            if normalizer.cache.is_cached(fp):
+                cached_hits += 1
+                normalizer.stats.cached += 1
+                normalizer.stats.skipped += 1
+                normalizer.stats.total_files += 1
+                if normalizer.verbose:
+                    logger.info(f"[C] CACHED {fp.name} - unchanged since last run")
+            else:
+                uncached.append(fp)
+        files_to_process = uncached
+        if cached_hits and normalizer.verbose:
+            logger.info(f"[C] Cache prefilter skipped {cached_hits} unchanged file(s)")
+
+    logger.info(f"\n[*] Found {len(files)} file(s) to process")
+    logger.info(f"   Extensions: {', '.join(exts)}")
+    mode_desc = "DRY RUN" if normalizer.dry_run else "IN-PLACE" if normalizer.in_place else "CLEAN COPY"
+    if normalizer.parallel:
+        mode_desc += f" (PARALLEL {normalizer.max_workers} workers)"
+    if normalizer.use_cache:
+        mode_desc += " (CACHED)"
+    if normalizer.interactive:
+        mode_desc += " (INTERACTIVE)"
+    logger.info(f"   Mode: {mode_desc}")
+
+    if not files_to_process:
+        logger.info("All discovered files were unchanged and skipped by cache.")
+        return
+
+    if not normalizer.dry_run and normalizer.in_place and not normalizer.interactive:
+        if normalizer.auto_confirm:
+            logger.info("[!] Skipping confirmation prompt (--yes)")
+        else:
+            try:
+                response = input(
+                    f"\n[!] In-place editing will scan {len(files_to_process)} file(s) "
+                    "and modify only files that need changes. Continue? (y/N): "
+                )
+            except EOFError:
+                logger.info("Cancelled (non-interactive stdin — use --yes to skip prompt)")
+                return
+            if response.strip().lower() not in ("y", "yes"):
+                logger.info("Cancelled")
+                return
+
+    if normalizer.parallel and not normalizer.interactive:
+        _process_parallel(normalizer, files_to_process, check_syntax)
+    else:
+        _process_sequential(normalizer, files_to_process, check_syntax)
+
+    if normalizer.use_cache and normalizer.cache and not normalizer.dry_run:
+        normalizer.cache.save()
+
+
+def _process_sequential(
+    normalizer: "CodeNormalizer",
+    files: List[Path],
+    check_syntax: bool,
+) -> None:
+    """Process files one at a time with optional tqdm progress bar."""
+    show_progress = HAS_TQDM and not normalizer.interactive and not normalizer.verbose
+    iterator = tqdm(files, desc="Processing") if show_progress else files
+    for fp in iterator:
+        normalizer.process_file(fp, check_syntax=check_syntax)
+
+
+def _process_parallel(
+    normalizer: "CodeNormalizer",
+    files: List[Path],
+    check_syntax: bool,
+) -> None:
+    """Submit files to a ProcessPoolExecutor and merge results."""
+    logger.info(f"\n[>>] Parallel processing with {normalizer.max_workers} workers...\n")
+
+    with ProcessPoolExecutor(
+        max_workers=normalizer.max_workers,
+        initializer=_init_worker,
+        initargs=(normalizer.log_file,),
+    ) as executor:
+        futures = {
+            executor.submit(
+                process_file_worker,
+                fp,
+                normalizer.dry_run,
+                normalizer.in_place,
+                normalizer.create_backup,
+                check_syntax,
+                normalizer.syntax_timeout,
+                normalizer.expand_tabs,
+                normalizer.max_lines,
+            ): fp
+            for fp in files
+        }
+
+        show_progress = HAS_TQDM and not normalizer.verbose
+        iterator = as_completed(futures)
+        if show_progress:
+            iterator = tqdm(iterator, total=len(files), desc="Processing")
+
+        for future in iterator:
+            fp = futures[future]
+            try:
+                success, stats_update, error = future.result()
+                normalizer.stats.total_files += 1
+                if success:
+                    normalizer.stats.processed += stats_update["processed"]
+                    normalizer.stats.skipped += stats_update["skipped"]
+                    normalizer.stats.encoding_changes += stats_update["encoding_changes"]
+                    normalizer.stats.newline_fixes += stats_update["newline_fixes"]
+                    normalizer.stats.whitespace_fixes += stats_update["whitespace_fixes"]
+                    normalizer.stats.bytes_removed += stats_update["bytes_removed"]
+                    normalizer.stats.syntax_checks_passed += stats_update["syntax_checks_passed"]
+                    normalizer.stats.syntax_checks_failed += stats_update["syntax_checks_failed"]
+                    if normalizer.use_cache and normalizer.cache and not normalizer.dry_run:
+                        normalizer.cache.update(fp)
+                else:
+                    normalizer.stats.errors += 1
+                    normalizer.stats.syntax_checks_failed += stats_update.get("syntax_checks_failed", 0)
+                    normalizer.stats.syntax_checks_passed += stats_update.get("syntax_checks_passed", 0)
+                    normalizer.errors.append((fp, error))
+            except Exception:
+                tb_str = _traceback.format_exc()
+                normalizer.stats.errors += 1
+                normalizer.errors.append((fp, f"Future failed:\n{tb_str}"))
