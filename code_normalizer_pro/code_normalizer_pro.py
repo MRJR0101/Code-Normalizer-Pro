@@ -756,8 +756,8 @@ class CodeNormalizer:
                     logger.info(f"[S] SKIP {path.name} - already normalized")
                 self.stats.skipped += 1
 
-                # Update cache even for unchanged files
-                if self.use_cache and self.cache:
+                # Update cache even for unchanged files (skip in dry-run: no disk writes)
+                if self.use_cache and self.cache and not self.dry_run:
                     self.cache.update(path)
 
                 return True
