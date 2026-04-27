@@ -2,8 +2,7 @@
 
 ## Overview
 
-`code-normalizer-pro` is a CLI-first normalization tool that scans files, applies
-deterministic text normalization, and optionally validates syntax.
+`code-normalizer-pro` is a CLI-first normalization tool that scans files, applies deterministic text normalization, and optionally validates syntax.
 
 ## Components
 
@@ -28,13 +27,9 @@ deterministic text normalization, and optionally validates syntax.
 
 ## Key Design Decisions
 
-- **Atomic writes with pre-flight syntax check**: when `--check` is enabled, the syntax
-  check runs against the in-memory normalized content before any file is written. A failing
-  check leaves the original file byte-identical.
-- **Cache placed beside target**: `.normalize-cache.json` lives next to the directory being
-  processed so running against two different projects from the same shell never cross-contaminates.
-- **mypyc compilation optional**: `setup.py` catches `ImportError` from mypyc and falls back
-  to a pure-Python build when a C compiler or mypyc DLL is blocked by policy.
+- **Atomic writes with pre-flight syntax check**: when `--check` is enabled, the syntax check runs against the in-memory normalized content before any file is written. A failing check leaves the original file byte-identical.
+- **Cache placed beside target**: `.normalize-cache.json` lives next to the directory being processed so running against two different projects from the same shell never cross-contaminates.
+- **mypyc compilation optional**: `setup.py` catches `ImportError` from mypyc and falls back to a pure-Python build when a C compiler or mypyc DLL is blocked by policy.
 
 ## Operational Notes
 
