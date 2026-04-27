@@ -1,0 +1,33 @@
+# examples/ci_gate.yml
+#
+# Drop this job into any GitHub Actions workflow to fail the build
+# when files need normalization. Nothing is written to disk — it only
+# reports what would change.
+#
+# Usage: copy the relevant steps into your existing workflow, or add
+# the whole job as a standalone check.
+
+name: Code hygiene
+
+on: [push, pull_request]
+
+jobs:
+  normalize-check:
+    name: Check normalization
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install code-normalizer-pro
+        run: pip install code-normalizer-pro
+
+      - name: Check encoding, line endings, and whitespace
+        run: code-normalizer-pro . --dry-run --fail-on-changes -e .py -e .js -e .ts -e .go
+
+      # Optional: also check non-code text files
+      # - name: Check markdown and config files
+      #   run: code-normalizer-pro . --dry-run --fail-on-changes -e .md -e .yml -e .toml

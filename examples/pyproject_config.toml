@@ -1,0 +1,45 @@
+# examples/pyproject_config.toml
+#
+# Sample [tool.code-normalizer-pro] block for pyproject.toml.
+# Copy the section below into your project's pyproject.toml to set
+# project-wide defaults so you don't have to repeat flags on the command line.
+#
+# All keys are optional — omit any you want to leave at its built-in default.
+
+[tool.code-normalizer-pro]
+
+# File extensions to normalize (no dot prefix needed, but accepted either way).
+# Default: [".py"]
+extensions = [".py", ".js", ".ts", ".go", ".md", ".yml", ".toml"]
+
+# Target encoding.  Files not already in this encoding are re-encoded.
+# Default: "utf-8"
+encoding = "utf-8"
+
+# Line-ending style: "lf", "crlf", or "native".
+# Default: "lf"
+line_ending = "lf"
+
+# Strip trailing whitespace from every line.
+# Default: true
+strip_trailing_whitespace = true
+
+# Ensure a single newline at end of file.
+# Default: true
+ensure_final_newline = true
+
+# Maximum number of parallel worker processes.
+# Default: number of CPU cores
+max_workers = 4
+
+# Skip files larger than this many lines.  0 = no limit.
+# Default: 0
+max_lines = 0
+
+# Create .cnp-bak backup files before writing.
+# Default: true
+create_backup = true
+
+# Write changes without confirmation prompts (use with care in CI).
+# Default: false
+auto_confirm = false
