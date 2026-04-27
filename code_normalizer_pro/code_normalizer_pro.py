@@ -387,7 +387,7 @@ class CodeNormalizer:
         # Safety check: prevent memory exhaustion from massive files
         max_size = 50 * 1024 * 1024  # 50 MB
         if path.stat().st_size > max_size:
-            raise ValueError(f"File exceeds maximum size limit of 50MB for in-memory processing")
+            raise ValueError("File exceeds maximum size limit of 50MB for in-memory processing")
 
         # Fast binary check using mmap (zero-copy, highly memory efficient)
         try:
@@ -406,7 +406,7 @@ class CodeNormalizer:
         data = path.read_bytes()
 
         if b"\x00" in data and not self._looks_like_utf16_text(data):
-            raise ValueError(f"File appears to be binary")
+            raise ValueError("File appears to be binary")
 
         # Explicit UTF-8 BOM detection.  Python's plain "utf-8" codec treats
         # the three BOM bytes (EF BB BF) as the valid U+FEFF codepoint rather
@@ -427,7 +427,7 @@ class CodeNormalizer:
                 continue
 
         raise UnicodeError(
-            f"Could not decode with common encodings"
+            "Could not decode with common encodings"
         ) from last_error
 
     def _expand_braces(self, pattern: str) -> List[str]:
@@ -734,7 +734,8 @@ class CodeNormalizer:
             if self.max_lines > 0:
                 if text.count('\n') > self.max_lines:
                     if self.verbose:
-                        logger.info(f"[S] SKIP {path.name} - {text.count('\n')} lines exceeds {self.max_lines} max-lines limit")
+                        line_count = text.count('\n')
+                        logger.info(f"[S] SKIP {path.name} - {line_count} lines exceeds {self.max_lines} max-lines limit")
                     self.stats.skipped += 1
                     return True
 
@@ -779,7 +780,7 @@ class CodeNormalizer:
                     logger.info(f"  Whitespace: {changes['whitespace_fixes']} chars removed")
                     self.stats.whitespace_fixes += 1
                 if changes['final_newline_added']:
-                    logger.info(f"  Final newline: added")
+                    logger.info("  Final newline: added")
 
                 if check_syntax:
                     ok, reason = self.syntax_check_text(path, normalized)
@@ -900,7 +901,7 @@ class CodeNormalizer:
 
             return True
 
-        except Exception as e:
+        except Exception:
             import traceback
             tb_str = traceback.format_exc()
             self.stats.errors += 1
@@ -1008,10 +1009,14 @@ class CodeNormalizer:
 
         # Confirmation
         if not self.dry_run and self.in_place and not self.interactive:
-            response = input(
-                f"\n[!] In-place editing will scan {len(files_to_process)} file(s) "
-                "and modify only files that need changes. Continue? (y/N): "
-            )
+            try:
+                response = input(
+                    f"\n[!] In-place editing will scan {len(files_to_process)} file(s) "
+                    "and modify only files that need changes. Continue? (y/N): "
+                )
+            except EOFError:
+                logger.info("Cancelled (non-interactive stdin)")
+                return
             if response.strip().lower() not in ("y", "yes"):
                 logger.info("Cancelled")
                 return
@@ -1092,7 +1097,7 @@ class CodeNormalizer:
                         self.stats.syntax_checks_passed += stats_update.get('syntax_checks_passed', 0)
                         self.errors.append((file_path, error))
 
-                except Exception as e:
+                except Exception:
                     import traceback
                     tb_str = traceback.format_exc()
                     self.stats.errors += 1
@@ -1182,18 +1187,23 @@ class CodeNormalizer:
             except Exception as e:
                 logger.error(f"[X] Could not save HTML report: {e}")
 
+_worker_log_initialized: bool = False
+
+
 def process_file_worker(file_path: Path, dry_run: bool, in_place: bool,
                        create_backup: bool, check_syntax: bool,
                        syntax_timeout: int = 10, expand_tabs: int = 0,
                        max_lines: int = 0, log_file: Optional[Path] = None) -> Tuple[bool, dict, str]:
     """Worker function for parallel processing"""
-    if log_file:
+    global _worker_log_initialized
+    if log_file and not _worker_log_initialized:
         logger.add(
             str(log_file),
             format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
             level="INFO",
             enqueue=True,
         )
+        _worker_log_initialized = True
 
     try:
         normalizer = CodeNormalizer(
@@ -1313,8 +1323,8 @@ if __name__ == "__main__":
     hook_path.chmod(0o755)
 
     logger.success(f"[OK] Installed {hook_type} hook at {hook_path}")
-    logger.info(f"   Hook will check Python files before commit")
-    logger.info(f"   Use 'git commit --no-verify' to skip check")
+    logger.info("   Hook will check Python files before commit")
+    logger.info("   Use 'git commit --no-verify' to skip check")
 
     return True
 

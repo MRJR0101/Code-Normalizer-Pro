@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-from code_normalizer_pro import code_normalizer_pro as cnp
+from code_normalizer_pro import code_normalizer_pro as cnp  # noqa: E402
 
 
 def test_guess_and_read_accepts_utf16_text(tmp_path: Path) -> None:
@@ -551,7 +551,6 @@ def test_in_place_preserves_file_permissions(tmp_path: Path) -> None:
 def test_file_symlinks_are_skipped(tmp_path: Path, monkeypatch) -> None:
     """File symlinks must be ignored to prevent clobbering the target or replacing the link."""
     import pytest
-    import os
 
     root = tmp_path / "project"
     root.mkdir()
