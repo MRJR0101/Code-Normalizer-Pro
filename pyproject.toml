@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "code-normalizer-pro"
-version = "3.1.1"
+version = "3.2.0"
 description = "Production-grade code normalization tool for encoding, newlines, and whitespace hygiene."
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { text = "MIT" }
@@ -32,7 +32,7 @@ Source     = "https://github.com/MRJR0101/Code-Normalizer-Pro"
 Changelog  = "https://github.com/MRJR0101/Code-Normalizer-Pro/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov"]
+dev = ["pytest>=8", "pytest-cov", "ruff>=0.4", "mypy>=1.0"]
 
 [project.scripts]
 code-normalizer-pro = "code_normalizer_pro.cli:main"

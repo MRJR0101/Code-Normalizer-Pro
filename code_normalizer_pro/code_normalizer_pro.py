@@ -40,7 +40,7 @@ New in v3.1.1 (bug fixes from self-review of 3.1.0):
 
 Author: MR
 Date: 2026-02-09
-Version: 3.1.1
+Version: 3.2.0
 """
 
 import typer
@@ -180,6 +180,7 @@ SYNTAX_CHECKERS = {
 }
 
 CACHE_FILE = ".normalize-cache.json"
+CACHE_SCHEMA_VERSION = 1  # bump when FileCache fields change to discard stale caches
 
 
 @dataclass
@@ -222,11 +223,23 @@ class CacheManager:
             try:
                 with open(self.cache_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                # Discard caches written by an older/newer schema version to
+                # prevent silent corruption when FileCache fields change.
+                if data.get("_schema_version", 0) != CACHE_SCHEMA_VERSION:
+                    logger.debug(
+                        f"Cache schema version mismatch "
+                        f"(got {data.get('_schema_version', 0)}, "
+                        f"expected {CACHE_SCHEMA_VERSION}) — starting fresh"
+                    )
                     self.cache = {}
-                    for k, v in data.items():
-                        if 'mtime' not in v:
-                            v['mtime'] = 0.0
-                        self.cache[k] = FileCache(**v)
+                    return
+                self.cache = {}
+                for k, v in data.items():
+                    if k.startswith("_"):
+                        continue  # skip metadata keys (_schema_version, etc.)
+                    if 'mtime' not in v:
+                        v['mtime'] = 0.0
+                    self.cache[k] = FileCache(**v)
             except Exception as e:
                 logger.warning(f"Could not load cache: {e}")
                 self.cache = {}
@@ -235,7 +248,8 @@ class CacheManager:
         """Save cache to disk"""
         try:
             with open(self.cache_path, 'w', encoding='utf-8') as f:
-                data = {k: asdict(v) for k, v in self.cache.items()}
+                data: dict = {"_schema_version": CACHE_SCHEMA_VERSION}
+                data.update({k: asdict(v) for k, v in self.cache.items()})
                 json.dump(data, f, indent=2)
         except Exception as e:
             logger.warning(f"Could not save cache: {e}")
@@ -1361,6 +1375,13 @@ if __name__ == "__main__":
     return True
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from code_normalizer_pro import __version__
+        print(f"code-normalizer-pro {__version__}")
+        raise typer.Exit()
+
+
 app = typer.Typer(
     help="Code Normalizer Pro - Production-grade normalization tool",
     add_completion=False,
@@ -1369,6 +1390,10 @@ app = typer.Typer(
 
 @app.command()
 def cli_main(
+    version: Optional[bool] = typer.Option(
+        None, "--version", callback=_version_callback, is_eager=True,
+        help="Show version and exit",
+    ),
     path: Optional[Path] = typer.Argument(None, help="File or directory to process"),
     ext: Optional[List[str]] = typer.Option(None, "-e", "--ext", help="File extensions (e.g. -e .py -e .js)"),
     output: Optional[Path] = typer.Option(None, "-o", "--output", help="Output file (single file mode only)"),

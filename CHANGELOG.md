@@ -2,6 +2,76 @@
 
 All notable changes to this project are documented here.
 
+## [3.2.0] - 2026-04-26
+
+### Added
+
+- **`--version` flag**: `code-normalizer-pro --version` now prints the
+  installed version string and exits, satisfying the standard CLI contract
+  expected by scripts, CI pipelines, and package managers.
+- **`--yes / -y` flag**: skips the in-place confirmation prompt for
+  non-interactive use (CI/scripting). Also overrides the `--no-backup`
+  git-repo guard when the user explicitly opts in.
+- **Git-repo guard for `--no-backup`**: running `--in-place --no-backup`
+  outside a git repository now exits with code 1 and a clear message.
+  Prevents permanent data loss when backups are disabled. Override with
+  `--yes` when working in an intentionally untracked directory.
+- **Empty-output guard**: `normalize_text()` returning an empty string for a
+  non-empty input file now aborts the write and increments the error counter
+  instead of silently truncating the file.
+- **Cache schema versioning**: `cnp-cache.json` now includes a
+  `_schema_version` field. When the schema version does not match the
+  running code, the stale cache is discarded and rebuilt from scratch on the
+  next run, preventing silent corruption when the `FileCache` dataclass
+  fields change in future releases.
+- **BOM detection**: `guess_and_read` now performs an explicit UTF-8 BOM
+  check before the codec loop; BOM-marked files are correctly identified as
+  `utf-8-sig` and rewritten without the BOM.
+- **EditorConfig preamble parser**: prepends a `[__preamble__]` sentinel
+  section so that root-level `root=true` and other pre-header keys no longer
+  cause a silent `MissingSectionHeaderError` that discarded the entire
+  `.editorconfig` file.
+
+### Fixed
+
+- **Python 3.10/3.11 SyntaxError**: backslash inside an f-string expression
+  on line 737 (`text.count('\n')` in a skip-log message) is illegal before
+  Python 3.12. Hoisted to a local variable. The tool now runs correctly on
+  Python 3.10 and 3.11.
+- **EOFError on confirmation prompt**: `input()` raises `EOFError` when
+  stdin is not a TTY (subprocess, CI pipeline, shell redirection). The
+  prompt now catches `EOFError` and exits cleanly with an informative
+  message directing users to `--yes`.
+- **Duplicate log entries in `--parallel --log-file`**: per-task global
+  `_worker_log_initialized` was not reliable under Linux `fork()`. Replaced
+  with `ProcessPoolExecutor(initializer=_init_worker, ...)` so each worker
+  process configures its log sink exactly once at startup.
+- **`cache.update()` called during `--dry-run`**: already-clean files had
+  their cache entry mutated even in dry-run mode. Now gated on
+  `not self.dry_run`.
+- **mypyc graceful fallback**: `setup.py` now catches `ImportError` /
+  `Exception` from mypyc and falls back to a pure-Python wheel, allowing
+  builds in environments without a C compiler or with AppLocker restrictions.
+
+### Changed
+
+- **CI pipeline**: added `ruff check` and `mypy` steps to the test matrix
+  so linting and type errors are caught on every push and pull request.
+  Coverage threshold set to 80 % (`--cov-fail-under=80`).
+- **Dev dependencies**: `ruff>=0.4` and `mypy>=1.0` added to
+  `[project.optional-dependencies] dev` so `pip install ".[dev]"` gives a
+  complete local dev environment in one command.
+
+### Test suite
+
+- Grew from 17 tests (3.1.1 claim) to **63 tests**. All 63 passing.
+- New tests cover: `--fail-on-changes`, BOM stripping, windows-1252
+  detection, CacheManager round-trip, interactive decline, output-file mode,
+  stats accounting, git-repo guard, `--yes` bypass, empty-output guard,
+  EOFError handling, parallel worker log deduplication.
+
+---
+
 ## [3.1.1] - 2026-04-06
 
 ### Added
