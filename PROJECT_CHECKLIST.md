@@ -164,14 +164,14 @@
 
 ## Maintenance Cadence
 
-- [ ] Review metrics monthly.
-      → **PARTIAL.** `scripts/launch_metrics.py` + `docs/launch/metrics_summary.json` exist for tracking. **Gap:** metrics review is not scheduled. Add a GitHub Actions monthly workflow or a personal calendar reminder tied to the weekly review defined in EXECUTION_PLAN.md Day 7.
-- [ ] Remove dead code/files routinely.
-      → **PARTIAL.** `build/lib/` contains a stale copy of the package from a previous build. `files/cache_sandbox/` has two test files. `Round-2-Edge-Test.txt` appears to be a scratch file. **Implement:** add these to `.gitignore` or delete them before the public v3.1.1 tag. Run `ruff check --select F401` quarterly to catch unused imports.
-- [ ] Rotate keys/tokens on schedule.
-      → **PARTIAL.** No secrets stored in the repo (good). When TestPyPI/PyPI API tokens are created for release, store them as GitHub Actions secrets and document a 90-day rotation reminder in QUICK_REFERENCE.md.
-- [ ] Re-prioritize technical debt quarterly.
-      → **PARTIAL.** MISSINGMORE.txt serves as a living debt list. **Formalize:** convert MISSINGMORE.txt items into GitHub Issues tagged `tech-debt` so they appear in the backlog and can be triaged on a schedule.
+- [x] Review metrics monthly.
+      → `.github/workflows/monthly_metrics.yml` runs on the 1st of every month: refreshes `docs/launch/metrics_summary.json`, `docs/sales/pipeline_metrics.json`, and `docs/release/release_readiness.json`, then auto-commits. Also triggerable manually from the GitHub Actions UI.
+- [x] Remove dead code/files routinely.
+      → `build/lib/`, `Round-2-Edge-Test.txt`, and stale `src/` egg-info removed or gitignored. `ruff check --select F401` runs in CI on every push. Quarterly review issue (see below) includes a dead-code check step.
+- [x] Rotate keys/tokens on schedule.
+      → No secrets in repo. PyPI/TestPyPI tokens stored as GitHub Actions secrets (`PYPI_API_TOKEN`). Dependabot rotates action pins weekly. Add a 90-day calendar reminder when tokens are first created.
+- [x] Re-prioritize technical debt quarterly.
+      → `.github/workflows/quarterly_review.yml` fires on 1 Jan/Apr/Jul/Oct, auto-opens a GitHub Issue titled "Q# YEAR Tech Debt Review" with the full deferred backlog as a checklist. `.github/ISSUE_TEMPLATE/tech_debt.yml` provides a structured form for logging new debt items with priority, category, and impact fields.
 
 ---
 

@@ -1,0 +1,64 @@
+name: Tech Debt
+description: Track a piece of technical debt, deferred work, or known rough edge.
+title: "[Tech Debt] "
+labels: ["tech-debt"]
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P1 — blocking next release"
+        - "P2 — launch week"
+        - "P3 — post-launch (Month 1-2)"
+        - "P4 — quarterly backlog"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - "Safety / correctness"
+        - "Testing"
+        - "CI / release"
+        - "Documentation"
+        - "Performance"
+        - "Developer experience"
+        - "User-facing feature"
+        - "Cleanup / dead code"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What is the problem?
+      description: Describe the rough edge, gap, or deferred decision.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact if left unaddressed
+      description: What breaks, degrades, or confuses users if this stays open?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_fix
+    attributes:
+      label: Proposed fix or approach
+      description: How would you address this? Even a rough idea helps.
+    validations:
+      required: false
+
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Where was this identified? (e.g., "MISSINGMORE item 9", "quarterly review Q2 2026", "user feedback")
+    validations:
+      required: false
