@@ -1323,7 +1323,8 @@ def test_stats_whitespace_fixes_incremented_for_trailing_spaces(tmp_path: Path, 
 
 def test_no_backup_outside_git_repo_is_blocked(tmp_path: Path) -> None:
     """--no-backup --in-place outside a git repo must exit 1 with a clear error."""
-    import subprocess, sys
+    import subprocess
+    import sys
     sample = tmp_path / "sample.py"
     sample.write_bytes(b"x = 1\r\n")
 
@@ -1339,7 +1340,8 @@ def test_no_backup_outside_git_repo_is_blocked(tmp_path: Path) -> None:
 
 def test_no_backup_outside_git_repo_bypassed_with_yes(tmp_path: Path) -> None:
     """--no-backup --in-place --yes must succeed even outside a git repo."""
-    import subprocess, sys
+    import subprocess
+    import sys
     sample = tmp_path / "sample.py"
     sample.write_bytes(b"x = 1\r\n")
 
@@ -1355,7 +1357,8 @@ def test_no_backup_outside_git_repo_bypassed_with_yes(tmp_path: Path) -> None:
 
 def test_yes_flag_skips_confirmation_prompt(tmp_path: Path) -> None:
     """--yes must bypass the in-place confirmation prompt non-interactively."""
-    import subprocess, sys
+    import subprocess
+    import sys
     sample = tmp_path / "sample.py"
     sample.write_bytes(b"x = 1\r\n")
 
