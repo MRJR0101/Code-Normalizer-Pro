@@ -307,7 +307,8 @@ class CodeNormalizer:
                  expand_tabs: int = 0,
                  max_lines: int = 0,
                  respect_gitignore: bool = True,
-                 log_file: Optional[Path] = None):
+                 log_file: Optional[Path] = None,
+                 auto_confirm: bool = False):
         self.dry_run = dry_run
         self.verbose = verbose
         self.in_place = in_place
@@ -325,6 +326,7 @@ class CodeNormalizer:
         self.max_lines = max(0, int(max_lines))
         self.respect_gitignore = respect_gitignore
         self.log_file = log_file
+        self.auto_confirm = auto_confirm
         self.stats = ProcessStats()
         self.errors: List[Tuple[Path, str]] = []
         self.cache = CacheManager(cache_path) if use_cache and cache_path else None
@@ -814,6 +816,14 @@ class CodeNormalizer:
                     logger.error("    (original preserved, no changes written)")
                     return False
 
+            # Guard: normalization must never produce an empty file from non-empty input.
+            # This catches any future regression in normalize_text() before data is lost.
+            if normalized == "" and text != "":
+                self.stats.errors += 1
+                self.errors.append((path, "normalize_text() returned empty string for non-empty input"))
+                logger.error(f"[X] {path.name}: normalization produced empty output — aborting write (file preserved)")
+                return False
+
             # Create backup if needed
             backup_created = None
             if self.in_place and self.create_backup:
@@ -1009,17 +1019,20 @@ class CodeNormalizer:
 
         # Confirmation
         if not self.dry_run and self.in_place and not self.interactive:
-            try:
-                response = input(
-                    f"\n[!] In-place editing will scan {len(files_to_process)} file(s) "
-                    "and modify only files that need changes. Continue? (y/N): "
-                )
-            except EOFError:
-                logger.info("Cancelled (non-interactive stdin)")
-                return
-            if response.strip().lower() not in ("y", "yes"):
-                logger.info("Cancelled")
-                return
+            if self.auto_confirm:
+                logger.info("[!] Skipping confirmation prompt (--yes)")
+            else:
+                try:
+                    response = input(
+                        f"\n[!] In-place editing will scan {len(files_to_process)} file(s) "
+                        "and modify only files that need changes. Continue? (y/N): "
+                    )
+                except EOFError:
+                    logger.info("Cancelled (non-interactive stdin — use --yes to skip prompt)")
+                    return
+                if response.strip().lower() not in ("y", "yes"):
+                    logger.info("Cancelled")
+                    return
 
         # Process files
 
@@ -1043,7 +1056,11 @@ class CodeNormalizer:
         """Process files in parallel"""
         logger.info(f"\n[>>] Parallel processing with {self.max_workers} workers...\n")
 
-        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=self.max_workers,
+            initializer=_init_worker,
+            initargs=(self.log_file,),
+        ) as executor:
             # Submit all tasks
             futures = {
                 executor.submit(
@@ -1054,9 +1071,8 @@ class CodeNormalizer:
                     self.create_backup,
                     check_syntax,
                     self.syntax_timeout,
-                        self.expand_tabs,
-                        self.max_lines,
-                        self.log_file,
+                    self.expand_tabs,
+                    self.max_lines,
                 ): file_path
                 for file_path in files
             }
@@ -1187,23 +1203,25 @@ class CodeNormalizer:
             except Exception as e:
                 logger.error(f"[X] Could not save HTML report: {e}")
 
-_worker_log_initialized: bool = False
-
-
-def process_file_worker(file_path: Path, dry_run: bool, in_place: bool,
-                       create_backup: bool, check_syntax: bool,
-                       syntax_timeout: int = 10, expand_tabs: int = 0,
-                       max_lines: int = 0, log_file: Optional[Path] = None) -> Tuple[bool, dict, str]:
-    """Worker function for parallel processing"""
-    global _worker_log_initialized
-    if log_file and not _worker_log_initialized:
+def _init_worker(log_file: Optional[Path]) -> None:
+    """ProcessPoolExecutor initializer: runs once per worker process at startup.
+    Sets up the log sink exactly once, regardless of how many files the worker handles.
+    Using the initializer (rather than a per-call global) is correct on both
+    Windows (spawn) and Linux/macOS (fork) start methods."""
+    if log_file:
         logger.add(
             str(log_file),
             format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
             level="INFO",
             enqueue=True,
         )
-        _worker_log_initialized = True
+
+
+def process_file_worker(file_path: Path, dry_run: bool, in_place: bool,
+                       create_backup: bool, check_syntax: bool,
+                       syntax_timeout: int = 10, expand_tabs: int = 0,
+                       max_lines: int = 0) -> Tuple[bool, dict, str]:
+    """Worker function for parallel processing (log sink set up by _init_worker)"""
 
     try:
         normalizer = CodeNormalizer(
@@ -1242,6 +1260,20 @@ def process_file_worker(file_path: Path, dry_run: bool, in_place: bool,
             'whitespace_fixes': 0, 'bytes_removed': 0, 'syntax_checks_passed': 0, 'syntax_checks_failed': 0
         }
         return False, empty_stats, f"Worker Crash:\n{tb_str}"
+
+
+def _is_in_git_repo(path: Path) -> bool:
+    """Return True if *path* is inside a git working tree."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            cwd=str(path if path.is_dir() else path.parent),
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def install_git_hook(hook_type: str = "pre-commit") -> bool:
@@ -1360,7 +1392,8 @@ def cli_main(
     log_file: Optional[Path] = typer.Option(None, "--log-file", help="Save execution logs to a file"),
     compress_logs: bool = typer.Option(False, "--compress-logs", help="Compress rotated log files (.gz)"),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
-    fail_on_changes: bool = typer.Option(False, "--fail-on-changes", help="Exit 1 when --dry-run finds files that need normalization (useful for CI pipelines)")
+    fail_on_changes: bool = typer.Option(False, "--fail-on-changes", help="Exit 1 when --dry-run finds files that need normalization (useful for CI pipelines)"),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts (for CI/scripting; also overrides --no-backup git-repo guard)")
 ):
 
     # pyproject.toml Configuration parsing
@@ -1425,6 +1458,13 @@ def cli_main(
     if no_backup and not in_place:
         logger.warning("--no-backup has no effect without --in-place")
 
+    if no_backup and in_place and not yes and not _is_in_git_repo(path):
+        logger.error(
+            "[X] --no-backup outside a git repo risks permanent data loss.\n"
+            "    Commit your files to git first, or pass --yes to override."
+        )
+        sys.exit(1)
+
     if interactive and parallel:
         logger.warning("--interactive disables --parallel")
         parallel = False
@@ -1455,6 +1495,7 @@ def cli_main(
         max_lines=max_lines,
         respect_gitignore=not no_gitignore,
         log_file=log_file,
+        auto_confirm=yes,
     )
 
     logger.info("="*70)

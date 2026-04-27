@@ -125,6 +125,7 @@ def test_parallel_cache_hits_are_persisted(tmp_path: Path) -> None:
         "--cache",
         "--in-place",
         "--no-backup",
+        "--yes",
     ]
 
     first = subprocess.run(
@@ -776,9 +777,8 @@ def test_log_file_captures_stdout(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, str(REPO_ROOT / "main.py"),
-         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--yes", "--no-cache",
          "--log-file", str(log_file)],
-        input="y\n",
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -800,9 +800,8 @@ def test_log_file_rotation(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, str(REPO_ROOT / "main.py"),
-         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--yes", "--no-cache",
          "--log-file", str(log_file)],
-        input="y\n",
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -827,9 +826,8 @@ def test_log_file_compression(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, str(REPO_ROOT / "main.py"),
-         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache",
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--yes", "--no-cache",
          "--log-file", str(log_file), "--compress-logs"],
-        input="y\n",
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
     )
     assert result.returncode == 0, result.stderr
@@ -1322,6 +1320,71 @@ def test_stats_whitespace_fixes_incremented_for_trailing_spaces(tmp_path: Path, 
 # ---------------------------------------------------------------------------
 # Interactive mode — user can skip individual files
 # ---------------------------------------------------------------------------
+
+def test_no_backup_outside_git_repo_is_blocked(tmp_path: Path) -> None:
+    """--no-backup --in-place outside a git repo must exit 1 with a clear error."""
+    import subprocess, sys
+    sample = tmp_path / "sample.py"
+    sample.write_bytes(b"x = 1\r\n")
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+        cwd=str(tmp_path),   # run from tmp_path which has no .git
+    )
+    assert result.returncode == 1
+    assert "git repo" in result.stdout.lower() or "git repo" in result.stderr.lower()
+
+
+def test_no_backup_outside_git_repo_bypassed_with_yes(tmp_path: Path) -> None:
+    """--no-backup --in-place --yes must succeed even outside a git repo."""
+    import subprocess, sys
+    sample = tmp_path / "sample.py"
+    sample.write_bytes(b"x = 1\r\n")
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--no-backup", "--yes", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+        cwd=str(tmp_path),
+    )
+    assert result.returncode == 0
+    assert b"\r" not in sample.read_bytes(), "File should have been normalised in-place"
+
+
+def test_yes_flag_skips_confirmation_prompt(tmp_path: Path) -> None:
+    """--yes must bypass the in-place confirmation prompt non-interactively."""
+    import subprocess, sys
+    sample = tmp_path / "sample.py"
+    sample.write_bytes(b"x = 1\r\n")
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "main.py"),
+         str(sample), "-e", ".py", "--in-place", "--yes", "--no-cache"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+        cwd=str(tmp_path),
+    )
+    assert result.returncode == 0
+    assert b"\r" not in sample.read_bytes()
+
+
+def test_empty_output_guard_prevents_write(tmp_path: Path, monkeypatch) -> None:
+    """normalize_text() returning '' for non-empty input must abort the write."""
+    sample = tmp_path / "sample.py"
+    original = b"print('hello')\n"
+    sample.write_bytes(original)
+
+    # Patch normalize_text to return empty string
+    monkeypatch.setattr(cnp.CodeNormalizer, "normalize_text", lambda self, text, path: ("", {}))
+
+    normalizer = cnp.CodeNormalizer(in_place=True, create_backup=False, use_cache=False)
+    result = normalizer.process_file(sample)
+
+    assert result is False, "Should return False when output would be empty"
+    assert sample.read_bytes() == original, "Original file must be preserved"
+    assert normalizer.stats.errors == 1
+
 
 def test_interactive_mode_skips_file_when_user_declines(tmp_path: Path, monkeypatch) -> None:
     """In --interactive mode, a 'n' response to show_diff must skip the file untouched."""
