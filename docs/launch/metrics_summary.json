@@ -1,0 +1,15 @@
+{
+  "total_records": 2,
+  "status_breakdown": {
+    "active": 0,
+    "churned": 0,
+    "contacted": 2,
+    "interested": 0,
+    "paying": 0,
+    "replied": 0
+  },
+  "channel_breakdown": {
+    "seed-list": 2
+  },
+  "paying_conversion_percent": 0.0
+}

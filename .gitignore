@@ -1,0 +1,44 @@
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.cache/
+.coverage
+htmlcov/
+
+# Package manager lock (library, not application)
+uv.lock
+
+# Code Normalizer Pro runtime artifacts
+.normalize-cache.json
+*.cnp-tmp
+*.backup_*
+
+# Pre-release source backups
+*.bak_pre_*
+*.bak
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

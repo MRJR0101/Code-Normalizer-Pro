@@ -1,0 +1,117 @@
+REFACTOR LAW
+=============
+
+Status: ACTIVE
+Applies to: this project, and should be copied into every project that gets
+large refactors.
+
+LAW
+---
+
+Do not perform large refactors directly on live working files.
+
+For any substantial refactor, restructuring pass, or multi-part cleanup:
+
+1. Create a snapshot text document first.
+2. Do the exploratory work on a temporary copy.
+3. Validate the patch on the temporary copy.
+4. Only then apply the approved patch to the live file.
+
+This is not optional. This is the rule.
+
+WHAT COUNTS AS A LARGE REFACTOR
+-------------------------------
+
+A refactor is "large" if it includes any of the following:
+
+- moving or splitting functions/classes
+- changing control flow across multiple sections
+- touching many related blocks in one file
+- changing architecture, packaging, or entrypoints
+- replacing a working implementation with a redesigned one
+- any edit where rollback would be annoying or error-prone
+
+REQUIRED SNAPSHOT
+-----------------
+
+Before starting a large refactor, create a text snapshot.
+
+Recommended location:
+
+- snapshots\
+
+Recommended filename:
+
+- YYYYMMDD_HHMM_<project-or-file>_snapshot.txt
+
+Minimum contents:
+
+- project name
+- target file(s)
+- current source-of-truth path
+- reason for the refactor
+- current known behavior
+- known bugs or regressions
+- planned change
+- alternatives being considered
+- validation plan
+- rollback note
+
+TEMP COPY RULE
+--------------
+
+All exploratory and surgical refactor work happens on a temp copy first.
+
+Recommended temp locations:
+
+- tmp\
+- tmp_refactor\
+- scratch\
+
+The temp copy exists to answer:
+
+- is this patch actually correct?
+- does a smaller patch solve it better?
+- does the refactor create new regressions?
+
+LIVE FILE RULE
+--------------
+
+Live files are updated only after:
+
+- the temp-copy patch is reviewed
+- the behavior is verified
+- the chosen patch is clearly better than the alternatives
+
+If the temp-copy patch is not clearly correct, do not promote it.
+
+PREFERRED WORKFLOW
+------------------
+
+1. Identify the current source of truth.
+2. Write the snapshot text file.
+3. Copy the target into a temp workspace.
+4. Refactor on the temp copy.
+5. Run tests, smoke checks, or manual verification.
+6. Compare alternatives if needed.
+7. Apply the approved patch to the live file.
+8. Record the outcome in the snapshot or a follow-up note.
+
+WHY THIS LAW EXISTS
+-------------------
+
+This prevents:
+
+- "where did that code go?" confusion
+- silent regressions during cleanup
+- mixing archaeology with active edits
+- damaging the only trusted working copy
+- making large changes before the shape of the right fix is known
+
+SHORT VERSION
+-------------
+
+Snapshot first.
+Refactor on temp copy.
+Verify.
+Then patch live files.

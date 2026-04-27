@@ -1,0 +1,12 @@
+{
+  "missing_files": [],
+  "has_wheel": true,
+  "has_sdist": true,
+  "wheel_files": [
+    "code_normalizer_pro-3.0.1-py3-none-any.whl"
+  ],
+  "sdist_files": [
+    "code_normalizer_pro-3.0.1.tar.gz"
+  ],
+  "ready_for_alpha_release": true
+}

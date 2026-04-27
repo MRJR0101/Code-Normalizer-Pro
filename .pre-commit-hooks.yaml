@@ -1,0 +1,7 @@
+- id: code-normalizer-pro
+  name: Code Normalizer Pro
+  description: Production-grade code normalization tool
+  entry: code-normalizer-pro --check
+  language: python
+  types: [text]
+  require_serial: true

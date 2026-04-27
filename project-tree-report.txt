@@ -1,0 +1,194 @@
+PowerShell 7.5.5
+PS C:\Dev\PROJECTS\00_PyToolbelt\02_Scanners\CODE> python project_tree.py
+CODE/
+|-- .github/
+|   |-- ISSUE_TEMPLATE/
+|   |   |-- bug_report.yml
+|   |   +-- feature_request.yml
+|   |-- workflows/
+|   |   +-- ci.yml
+|   +-- pull_request_template.md
+|-- .venv-pypi-test/
+|   |-- Lib/
+|   |   +-- site-packages/
+|   |       |-- code_normalizer_pro/  (3 items)
+|   |       |-- code_normalizer_pro-3.0.1.dist-info/  (8 items)
+|   |       |-- colorama/  (7 items)
+|   |       |-- colorama-0.4.6.dist-info/  (6 items)
+|   |       |-- tqdm/  (25 items)
+|   |       |-- tqdm-4.67.3.dist-info/  (8 items)
+|   |       |-- _virtualenv.pth
+|   |       +-- _virtualenv.py
+|   |-- Scripts/
+|   |   |-- activate
+|   |   |-- activate.bat
+|   |   |-- activate.csh
+|   |   |-- activate.fish
+|   |   |-- activate.nu
+|   |   |-- activate.ps1
+|   |   |-- activate_this.py
+|   |   |-- code-normalizer-pro.exe
+|   |   |-- deactivate.bat
+|   |   |-- pydoc.bat
+|   |   |-- python.exe
+|   |   |-- pythonw.exe
+|   |   +-- tqdm.exe
+|   |-- .gitignore
+|   |-- .lock
+|   |-- CACHEDIR.TAG
+|   +-- pyvenv.cfg
+|-- Code-Intel-Harvester/
+|   |-- docs/
+|   |   |-- SCHEMA.md
+|   |   +-- WORKFLOWS.md
+|   |-- downloads/
+|   |   |-- bookmark_organizer-0.1.0-py3-none-any.whl
+|   |   |-- charset_normalizer-3.4.5-cp314-cp314-win_amd64.whl
+|   |   |-- code-organizer-1.0.tar.gz
+|   |   |-- code_complexity_pro-1.1.2-py3-none-any.whl
+|   |   |-- deep_organizer-1.0.0-py3-none-any.whl
+|   |   |-- jsonl_normalizer-0.2.1-py3-none-any.whl
+|   |   |-- organizer_cli-0.1.0-py3-none-any.whl
+|   |   |-- projects_organizer-0.4.0-py3-none-any.whl
+|   |   +-- whitespace_normalizer-2025.9.14911-py3-none-any.whl
+|   |-- extracted/
+|   |-- github/
+|   |-- library/
+|   |-- logs/
+|   |-- pypi_harvest/
+|   |-- source_dumps/
+|   |-- algo_indexer.py
+|   |-- algo_indexer_next.py
+|   |-- CHANGELOG.md
+|   |-- download_packages.ps1
+|   |-- extract_and_dump.py
+|   |-- extract_and_dump_secure.py
+|   |-- harvest_pipeline.ps1
+|   |-- harvester.txt
+|   |-- ingest_local.py
+|   |-- init.ps1
+|   |-- library_stats.py
+|   |-- packages.txt
+|   |-- README.md
+|   |-- repos.txt
+|   |-- run_harvest.ps1
+|   +-- search_algos.py
+|-- code_normalizer_pro/
+|   |-- __init__.py
+|   |-- cli.py
+|   +-- code_normalizer_pro.py
+|-- config/
+|   +-- settings.py
+|-- docs/
+|   |-- community/
+|   |   +-- community_plan.md
+|   |-- launch/
+|   |   |-- devto_article.md
+|   |   |-- first_100_users.csv
+|   |   |-- metrics_summary.json
+|   |   |-- outreach_calendar_week1.md
+|   |   |-- path1_execution_tracker.md
+|   |   |-- path1_outreach.md
+|   |   |-- top_pain_points.json
+|   |   +-- top_pain_points.md
+|   |-- release/
+|   |   |-- alpha_release_checklist.md
+|   |   +-- release_readiness.json
+|   |-- sales/
+|   |   |-- customer_offer_template.md
+|   |   |-- path1_pricing.md
+|   |   |-- pipeline.csv
+|   |   +-- pipeline_metrics.json
+|   |-- ARCHITECTURE.md
+|   |-- CODE_NORMALIZER_HISTORY.md
+|   |-- README.md
+|   +-- TEST_REPORT.md
+|-- examples/
+|-- files/
+|   |-- cache_sandbox/
+|   |   |-- a.py
+|   |   +-- b.py
+|   +-- smoke_case.py
+|-- Harvest/
+|-- roadmaps/
+|   |-- 01_solo_dev_tool.md
+|   |-- 02_dev_tool_saas.md
+|   |-- 03_enterprise_platform.md
+|   |-- 04_open_source_support.md
+|   |-- 05_grammarly_for_code.md
+|   |-- 06_ai_transformation_engine.md
+|   +-- README.md
+|-- scripts/
+|   |-- feedback_prioritizer.py
+|   |-- launch_metrics.py
+|   |-- release_prep.py
+|   +-- sales_pipeline_metrics.py
+|-- site/
+|   |-- index.html
+|   +-- styles.css
+|-- src/
+|   |-- code_normalize_v2.py
+|   +-- code_normalizer_pro.py
+|-- tests/
+|   |-- test_code_normalize_pro.py
+|   |-- test_feedback_prioritizer.py
+|   |-- test_launch_metrics.py
+|   |-- test_release_prep.py
+|   +-- test_sales_pipeline_metrics.py
+|-- working_copy/
+|   |-- code_normalizer_pro/
+|   |   |-- __init__.py
+|   |   |-- cli.py
+|   |   +-- code_normalizer_pro.py
+|   |-- dist_readme_check/
+|   |   |-- .gitignore
+|   |   |-- code_normalizer_pro-3.0.1-py3-none-any.whl
+|   |   +-- code_normalizer_pro-3.0.1.tar.gz
+|   |-- dist_readme_spec/
+|   |   |-- .gitignore
+|   |   |-- code_normalizer_pro-3.0.1-py3-none-any.whl
+|   |   +-- code_normalizer_pro-3.0.1.tar.gz
+|   |-- dist_rename_check/
+|   |   |-- .gitignore
+|   |   |-- code_normalizer_pro-3.0.1-py3-none-any.whl
+|   |   +-- code_normalizer_pro-3.0.1.tar.gz
+|   |-- docs/
+|   |   +-- CODE_NORMALIZER_HISTORY.md
+|   |-- src/
+|   |   |-- code_normalize_v2.py
+|   |   +-- code_normalizer_pro.py
+|   |-- tests/
+|   |   +-- test_code_normalize_pro.py
+|   |-- main.py
+|   |-- MANIFEST.txt
+|   |-- PIZZA_SLICE.txt
+|   |-- pyproject.toml
+|   |-- README.md
+|   |-- REFACTOR_LAW.txt
+|   +-- uv.lock
+|-- .env.example
+|-- .gitattributes
+|-- .gitignore
+|-- .normalize-cache.json
+|-- CHANGELOG.md
+|-- CONTRIBUTING.md
+|-- Dockerfile
+|-- EXECUTION_PLAN.md
+|-- files.zip
+|-- LICENSE
+|-- main.py
+|-- MISSINGMORE.txt
+|-- PIZZA_SLICE.txt
+|-- project-tree-report.txt
+|-- PROJECT_CHECKLIST.md
+|-- PROJECT_STATUS.md
+|-- project_tree.py
+|-- pyproject.toml
+|-- QUICK_REFERENCE.md
+|-- README.md
+|-- REFACTOR_LAW.txt
+|-- requirements.txt
+|-- Round-2-Edge-Test.txt
+|-- uv.lock
++-- VERIFY.md
+PS C:\Dev\PROJECTS\00_PyToolbelt\02_Scanners\CODE>

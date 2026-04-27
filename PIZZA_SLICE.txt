@@ -1,0 +1,109 @@
+PIZZA SLICE
+===========
+
+Status: MANDATORY
+Purpose: This is the project intake slice an AI should read first when opening
+this folder.
+
+Project
+-------
+
+Name: Code Normalizer Pro
+Root: C:\Dev\PROJECTS\Code-Normalizer-Pro-CLEAN
+Package name: code-normalizer-pro
+Import/package dir: code_normalizer_pro
+PyPI: https://pypi.org/project/code-normalizer-pro/
+GitHub: https://github.com/MRJR0101/Code-Normalizer-Pro
+
+Current Source Of Truth
+-----------------------
+
+Authoritative implementation:
+
+  code_normalizer_pro\code_normalizer_pro.py  (1481+ lines, v3.1.1)
+
+CLI entry point:
+
+  code_normalizer_pro\cli.py  (uses runpy to invoke the above)
+
+Package metadata:
+
+  code_normalizer_pro\__init__.py  (declares __version__ = "3.1.1")
+
+There is no src\ directory with active code. The src\ folder exists but
+contains only an empty .gitignore and is vestigial from an earlier layout.
+Do not look for code_normalize_pro.py in src\.
+
+Meaning Of The Naming
+---------------------
+
+- code_normalizer_pro/  = the installable package directory
+- code-normalizer-pro   = the PyPI package name / CLI command
+- code_normalizer_pro.py = the main engine module inside the package
+
+Project State
+-------------
+
+Version 3.1.1. Not yet published (dist\ is empty; awaits first build).
+Previous version 3.0.1 was published from the old CODE project.
+
+Verified behaviors:
+- 17 tests, all passing
+- CLI entry point works under editable install
+- Atomic writes, cache-on-interrupt, default-excludes, symlink cycle detection
+- --fail-on-changes flag for CI pipelines (new in 3.1.1)
+
+Known Reality
+-------------
+
+This is the CLEAN project. Do not confuse it with:
+- C:\Dev\PROJECTS\CODE  (old project, published 3.0.1)
+- C:\Dev\PROJECTS\00_PyToolbelt\02_Scanners\CODE  (historical root)
+
+Before editing anything, confirm the file is in code_normalizer_pro\ here,
+not a copy from another location.
+
+Mandatory Refactor Law
+----------------------
+
+Do not perform large refactors directly on live working files.
+
+For any substantial refactor:
+1. Create a snapshot text document in snapshots\ first.
+2. Do the exploratory work on a temporary copy.
+3. Validate the patch on the temp copy.
+4. Only then apply the approved patch to the live file.
+
+What Counts As A Large Refactor
+-------------------------------
+
+- moving or splitting functions/classes
+- changing control flow across multiple sections
+- touching many related blocks in one file
+- changing architecture, packaging, or entrypoints
+- replacing a working implementation with a redesigned one
+- any edit where rollback would be annoying or error-prone
+
+Snapshot Requirement
+--------------------
+
+Before a large refactor, create a text snapshot.
+Recommended location: snapshots\
+Recommended filename: YYYYMMDD_HHMM_<file>_snapshot.txt
+
+Immediate AI Checklist
+----------------------
+
+When opening this project, do this first:
+1. Read this file.
+2. Confirm source-of-truth path is code_normalizer_pro\code_normalizer_pro.py
+3. Check git status (git log --oneline -5).
+4. Do not start a large refactor without a snapshot.
+
+Related Notes
+-------------
+
+- docs\CODE_NORMALIZER_HISTORY.md
+- REFACTOR_LAW.txt
+- CHANGELOG.md
+- MISSINGMORE.txt (known bugs and pending tasks)

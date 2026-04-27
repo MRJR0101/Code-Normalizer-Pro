@@ -1,0 +1,54 @@
+MISSINGMORE - CODE (code_normalizer_pro)
+Last Updated: 2026-04-26
+========================================
+
+## STATUS
+Code COMPLETE as of v3.1.1 (2026-04-06).
+Package: code_normalizer_pro\code_normalizer_pro.py (authoritative source).
+Strategic path: Path 1 (Solo Dev Tool).
+AS OF 2026-04-26: Zero PyPI launch tasks completed. Build artifacts not yet generated.
+
+## RESOLVED (closed -- do not re-open without a regression test)
+
+~~1. NO pyproject.toml~~ -- RESOLVED 2026-03-13. pyproject.toml exists with full
+   metadata: authors, classifiers, URLs, dev extras, mypyc build system.
+
+~~2. BROKEN CLI IMPORT~~ -- RESOLVED. code_normalizer_pro\cli.py uses runpy
+   pattern; entry point works under editable install.
+
+~~3. Cache flag contradiction~~ -- RESOLVED in 3.1.1. --cache help text now
+   accurately describes it as a no-op kept for script compatibility.
+
+~~4. Parallel mode silently disables backups~~ -- RESOLVED. _process_parallel
+   passes self.create_backup to process_file_worker correctly.
+
+~~5. Double-counting in stats~~ -- RESOLVED in 3.1.0 via _ensure_cache_manager.
+
+~~6. Cache file lands in CWD~~ -- RESOLVED in 3.1.0. _ensure_cache_manager
+   places cache beside the target directory.
+
+~~7. --dry-run exits 0 even when violations found~~ -- RESOLVED in 3.1.1.
+   Use --fail-on-changes flag to exit 1 when normalization is needed.
+
+## OPEN (fix before real-user release or marketing push)
+
+8.  config\settings.py -- env-var loader exists but nothing imports it.
+    Wire it up to the CLI or remove it. Low risk, low priority.
+
+9.  examples\ directory is empty. Populate with 2-3 real usage examples
+    before first marketing push (Dev.to / HN).
+
+## LAUNCH TASKS -- ALL PENDING
+
+10. Build: python -m build --sdist --wheel
+11. Verify: python -m twine check dist/*
+12. Day 2: Upload to TestPyPI and verify install in fresh venv
+13. Day 3: Upload to PyPI, tag v3.1.1, push to GitHub
+14. Day 4: Write and post Dev.to article
+15. Day 5: Post Show HN to Hacker News
+16. Day 6: Post to r/Python
+17. Day 7: Follow-up and weekly review
+
+NOTE: Items 10-11 unblock everything else. Run them first.
+
+========================================

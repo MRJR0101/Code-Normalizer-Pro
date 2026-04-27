@@ -1,0 +1,4 @@
+date,lead,channel,status,monthly_value_usd,next_action,next_action_date,notes
+2026-02-12,example-org-1,reddit,contacted,0,send pilot offer,2026-02-15,interested in pre-commit setup
+2026-02-12,example-org-2,hn,pilot,299,schedule onboarding,2026-02-16,wants CI template
+
